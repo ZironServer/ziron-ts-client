@@ -1,0 +1,41 @@
+{
+  "name": "ziron-client",
+  "version": "0.0.1",
+  "description": "Ziron client",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "UNLICENSED",
+  "files": [
+    "dist/**/*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ZironServer/ziron-ts-client.git"
+  },
+  "author": {
+    "name": "Luca Scaringella",
+    "email": "lucacode1@gmail.com",
+    "url": "https://luca.scaringella.de"
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+    "typescript": "^3.7.5",
+    "ts-node": "^8.0.3",
+    "mocha": "7.0.1",
+    "@types/mocha": "^7.0.2"
+  },
+  "scripts": {
+    "build": "npm run compile",
+    "compile": "rm -rf dist/ && tsc -p ./",
+    "prepublishOnly": "npm run build",
+    "test": "mocha --exit -r ts-node/register test/**/*.ts"
+  },
+  "keywords": [
+    "websocket",
+    "realtime",
+    "ziron",
+    "fast",
+    "lightway"
+  ]
+}
