@@ -305,6 +305,18 @@ export default class Socket {
         this._state = SocketConnectionState.Closed;
     }
 
+    isConnected(): boolean {
+        return this._state === SocketConnectionState.Open;
+    }
+
+    isConnecting(): boolean {
+        return this._state === SocketConnectionState.Connecting;
+    }
+
+    isClosed(): boolean {
+        return this._state === SocketConnectionState.Closed;
+    }
+
     private _createUrl() {
         let port = '';
         if(this.options.port && ((this.options.secure && this.options.port !== 443) ||
