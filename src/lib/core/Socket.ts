@@ -150,4 +150,158 @@ export default class Socket {
         this.onUnknownTransmit(event,data,type);
     }
 
+    async connect(timeout?: number): Promise<void> {
+        if(this._state === SocketConnectionState.Closed) {
+            this._state = SocketConnectionState.Connecting;
+
+            clearTimeout(this._reconnectTimeoutTicker);
+
+            const connectDeferred = new Deferred<void>();
+            this._connectDeferred = connectDeferred;
+
+            try {
+                const handshakeUrl = await this._createHandshakeUrl();
+
+                this._connectTimeoutTicker = setTimeout(this._boundConnectTimeoutReached,
+                    timeout || this.options.connectTimeout);
+
+                const socket = createWebSocket(handshakeUrl,this.options.wsOptions);
+                this._socket = socket;
+
+                socket.binaryType = 'arraybuffer';
+                socket.onmessage = this._onMessageHandler;
+                socket.onclose = this._boundOnSocketClose;
+                socket.onerror = this._boundOnSocketError;
+                socket.onopen = this._boundOnSocketOpen;
+                this._transport.send = socket.send.bind(socket);
+            }
+            catch (err) {connectDeferred.reject(err)}
+        }
+        return this._connectDeferred.promise;
+    }
+
+    disconnect(code: number = 1000, reason?: string) {
+        if (this._state === SocketConnectionState.Open)
+            this._destroySocket(code, reason).close(code, reason)
+        else clearTimeout(this._reconnectTimeoutTicker);
+    }
+
+    async reconnect(connectTimeout?: number) {
+        this.disconnect();
+        return this.connect(connectTimeout);
+    }
+
+    private _tryConnect() {
+        this.connect().catch(EMPTY_HANDLER);
+    }
+
+    private _destroySocket(code: number, reason?: string): WebSocket {
+        reason = reason || socketProtocolErrorStatuses[code] || 'Unknown reason';
+
+        this._socket.onopen = EMPTY_HANDLER;
+        this._socket.onclose = EMPTY_HANDLER;
+        this._socket.onmessage = EMPTY_HANDLER;
+        this._socket.onerror = EMPTY_HANDLER;
+
+        clearTimeout(this._connectTimeoutTicker);
+        clearTimeout(this._pingTimeoutTicker);
+        clearTimeout(this._reconnectTimeoutTicker);
+
+        switch (this._state) {
+            case SocketConnectionState.Open:
+                this._onDisconnect(code,reason!);
+                break;
+            case SocketConnectionState.Connecting:
+                this._onConnectAbort(code,reason!);
+                break;
+            case SocketConnectionState.Closed:
+                this._transport.emitBadConnection(BadConnectionType.ConnectAbort);
+                break;
+        }
+
+        const socket = this._socket;
+
+        if (this.autoReconnectOptions.active)
+            // Reconnect
+            // on server ping timeout (4000)
+            // or on client pong timeout (4001)
+            // or on close without status (1005)
+            // or on handshake failure (4003)
+            // or on handshake rejection (4008)
+            // or on socket hung up (1006)
+            if (code === 4000 || code === 4001 || code === 1005) {
+                // If there is a ping or pong timeout or socket closes without
+                // status, don't wait before trying to reconnect.
+                // These could happen if the client wakes up after a period of inactivity and in this case we
+                // want to re-establish the connection as soon as possible.
+                this._tryReconnect(0)
+                // Codes 4500 and above will be treated as permanent disconnects.
+                // Socket will not try to auto-reconnect.
+            } else if (code !== 1000 && code < 4500) this._tryReconnect();
+
+        return socket;
+    }
+
+    private _renewPingTimeout() {
+        clearTimeout(this._pingTimeoutTicker);
+        this._pingTimeoutTicker = setTimeout(this._boundPingTimeoutReached,this._currentPingTimeout);
+    }
+
+    private _boundPingTimeoutReached: Socket['_onPingTimeoutReached'] = this._onPingTimeoutReached.bind(this);
+    private _onPingTimeoutReached() {
+        this._destroySocket(4000).close(4000);
+    }
+
+    private _boundConnectTimeoutReached: Socket['_onConnectTimeoutReached'] = this._onConnectTimeoutReached.bind(this);
+    private _onConnectTimeoutReached() {
+        this._destroySocket(4007).close(4007);
+    }
+
+    private _boundOnSocketOpen: Socket['_onSocketOpen'] = this._onSocketOpen.bind(this);
+    private _onSocketOpen() {
+        (this.receivers as Writable<Receivers>)[InternalServerTransmits.ConnectionReady] = ([pingInterval,authTokenState]) => {
+            this._currentPingTimeout = pingInterval + 1000;
+
+            if(typeof authTokenState === 'number') {
+                this.setAuth(null,null)
+                if(authTokenState === 2) this._tokenStoreEngine.removeToken();
+            }
+
+            this._state = SocketConnectionState.Open;
+            (this as Writable<Socket>).reconnectAttempts = 0;
+            (this.receivers as Writable<Receivers>)[InternalServerTransmits.ConnectionReady] = EMPTY_HANDLER;
+            clearTimeout(this._connectTimeoutTicker);
+            this._renewPingTimeout();
+            this._transport.emitOpen();
+            this._connectDeferred.resolve();
+            this._emit('connect');
+        };
+    }
+
+    private _boundOnSocketClose: Socket['_onSocketClose'] = this._onSocketClose.bind(this);
+    private _onSocketClose(event) {
+        this._destroySocket(event.code == null ? 1005 : event.code, event.reason);
+    }
+
+    private _boundOnSocketError: Socket['_onSocketError'] = this._onSocketError.bind(this);
+    private _onSocketError() {
+        if (this._state === SocketConnectionState.Connecting)
+            this._destroySocket(1006);
+    }
+
+    private _onConnectAbort(code: number, reason: string) {
+        this._transport.emitBadConnection(BadConnectionType.ConnectAbort);
+        const err = new ConnectAbortError(code,reason);
+
+        this._connectDeferred.reject(err);
+        this._emit('connectAbort',err);
+
+        this._state = SocketConnectionState.Closed;
+    }
+
+    private _onDisconnect(code: number, reason: string) {
+        this._transport.emitBadConnection(BadConnectionType.Disconnect);
+        this._emit('disconnect',code,reason);
+        this._state = SocketConnectionState.Closed;
+    }
 }
