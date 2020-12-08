@@ -9,7 +9,7 @@ import Socket from "./lib/core/Socket";
 import TokenStore from "./lib/main/tokenStore/TokenStore";
 import {createLocalStorageTokenStore} from "./lib/main/tokenStore/LocalStorageTokenStore";
 import SocketOptions from "./lib/core/SocketOptions";
-import {TimeoutError} from "ziron-engine";
+import {BackError, TimeoutError} from "ziron-engine";
 import {CancelablePromise,CancellationError} from "./lib/main/utils/CancelablePromise";
 
 EventEmitter.onceTimeoutErrorCreator = () => new TimeoutError('Once timeout reached.','OnceListener');
@@ -20,5 +20,6 @@ export {
     TokenStore,
     createLocalStorageTokenStore,
     CancelablePromise,
-    CancellationError
+    CancellationError,
+    BackError
 }
