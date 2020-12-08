@@ -18,6 +18,13 @@
     "url": "https://luca.scaringella.de"
   },
   "dependencies": {
+    "emitix": "^1.1.0",
+    "@types/node": "^13.7.6",
+    "ws": "^7.4.0",
+    "@types/ws": "^7.4.0",
+    "zation-core-errors": "1.2.1",
+    "zation-core-events": "1.0.1",
+    "ziron-engine": "0.3.2",
     "buffer": "^6.0.3"
   },
   "devDependencies": {
