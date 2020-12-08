@@ -85,9 +85,13 @@ export default class Socket {
     private _currentPingTimeout: number = 200000;
     private _pingTimeoutTicker: NodeJS.Timeout;
     private _connectTimeoutTicker: NodeJS.Timeout;
+    private _reconnectTimeoutTicker: NodeJS.Timeout;
     private _connectDeferred: Deferred<void>;
 
     private readonly _tokenStoreEngine: TokenStoreEngine;
+
+    public readonly reconnectAttempts: number = 0;
+
     public readonly procedures: Procedures = {};
     /**
      * @description
@@ -303,6 +307,21 @@ export default class Socket {
         this._transport.emitBadConnection(BadConnectionType.Disconnect);
         this._emit('disconnect',code,reason);
         this._state = SocketConnectionState.Closed;
+    }
+
+    private _tryReconnect(initialDelay?: number) {
+        const exponent = (this as Writable<Socket>).reconnectAttempts++;
+
+        let timeout = (initialDelay == null || exponent > 0) ?
+            Math.round(Math.round(this.autoReconnectOptions.initialDelay + this.autoReconnectOptions.randomness * Math.random()) *
+                Math.pow(this.autoReconnectOptions.multiplier, this.reconnectAttempts)) : initialDelay;
+
+        if (this.autoReconnectOptions.maxDelay != null && timeout > this.autoReconnectOptions.maxDelay) {
+            timeout = this.autoReconnectOptions.maxDelay;
+        }
+
+        clearTimeout(this._reconnectTimeoutTicker);
+        this._reconnectTimeoutTicker = setTimeout(() => this._tryConnect(), timeout);
     }
 
     isConnected(): boolean {
