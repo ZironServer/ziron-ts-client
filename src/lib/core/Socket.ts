@@ -394,4 +394,57 @@ export default class Socket {
         if(this._stringifiedHandshakeAttachment) props.push(`"a":${this._stringifiedHandshakeAttachment}`);
         return this._url + '?' + encodeURIComponent(`{${props.join(',')}}`);
     }
+
+    transmit<C extends boolean | undefined = undefined>
+        (event: string, data?: any, options: {batchTimeLimit?: number, sendTimeout?: number | null, cancelable?: C} & PreparePackageOptions = {})
+        : C extends true ? CancelablePromise<void> : Promise<void>
+    {
+        if(options.sendTimeout === undefined)
+            options.sendTimeout = this.options.transmitSendTimeout;
+
+        const preparedPackage = this._transport.prepareTransmit(event,data,options);
+
+        if(this._state !== SocketConnectionState.Open) this._tryConnect();
+
+        if(options.cancelable || options.sendTimeout != null) {
+            const sendP = this._transport.sendPreparedPackageWithPromise(preparedPackage,options.batchTimeLimit);
+            const cp = toCancelablePromise(sendP, () => this._transport.tryCancelPackage(preparedPackage));
+            if(options.sendTimeout != null) {
+                const timeout = setTimeout(() => {
+                    cp.cancel(new TimeoutError('Transmit send timeout reached.','SendTimeout'))
+                });
+                sendP.finally(() => clearTimeout(timeout))
+            }
+            return cp as any;
+        }
+        else return this._transport.sendPreparedPackageWithPromise(preparedPackage,options.batchTimeLimit) as any;
+    }
+
+    invoke<RDT extends true | false | undefined, C extends boolean | undefined = undefined>
+    (event: string, data?: any, options: {batchTimeLimit?: number, sendTimeout?: number | null, cancelable?: C, returnDataType?: RDT, ackTimeout?: number} & PreparePackageOptions = {})
+        : C extends true ? CancelablePromise<RDT extends true ? [any,DataType] : any> : Promise<RDT extends true ? [any,DataType] : any>
+    {
+        if(options.sendTimeout === undefined)
+            options.sendTimeout = this.options.invokeSendTimeout;
+
+        const preparedPackage = this._transport.prepareInvoke(event,data,options);
+
+        if(this._state !== SocketConnectionState.Open) this._tryConnect();
+
+        if(options.sendTimeout != null) {
+            const sendP = this._transport.sendPreparedPackageWithPromise(preparedPackage,options.batchTimeLimit);
+            const cp = toCancelablePromise(preparedPackage.promise, () => this._transport.tryCancelPackage(preparedPackage));
+            const timeout = setTimeout(() => {
+                cp.cancel(new TimeoutError('Invoke send timeout reached.','SendTimeout'))
+            });
+            sendP.finally(() => clearTimeout(timeout))
+            return cp as any;
+        }
+        else {
+            this._transport.sendPreparedPackage(preparedPackage,options.batchTimeLimit);
+            return options.cancelable ? toCancelablePromise(preparedPackage.promise, () => this._transport.tryCancelPackage(preparedPackage)) as any :
+                preparedPackage.promise as any;
+        }
+    }
+
 }
