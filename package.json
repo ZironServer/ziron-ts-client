@@ -18,6 +18,7 @@
     "url": "https://luca.scaringella.de"
   },
   "dependencies": {
+    "buffer": "^6.0.3"
   },
   "devDependencies": {
     "typescript": "^3.7.5",
