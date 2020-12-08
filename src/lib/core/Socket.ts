@@ -4,7 +4,7 @@ GitHub: LucaCode
 Copyright(c) Luca Scaringella
  */
 
-import SocketOptions, {AutoReconnectOptions} from "./SocketOptions";
+import SocketOptions, {AutoReconnectOptions, DEFAULT_HOSTNAME, DEFAULT_SECURE, getDefaultPort} from "./SocketOptions";
 import TokenStoreEngine from "../main/tokenStore/TokenStoreEngine";
 import {createWebSocket, WebSocket} from './WebSocket';
 import {InternalServerProcedures, InternalServerReceivers, InternalServerTransmits} from "zation-core-events";
@@ -52,21 +52,7 @@ type Procedures = {[key: string]: ProcedureListener | undefined}
 
 export default class Socket {
 
-    private readonly options: Required<SocketOptions> = {
-        hostname: 'localhost',
-        port: 3000,
-        secure: false,
-        path: '/zation',
-        connectTimeout: 20000,
-        ackTimeout: 7000,
-        invokeSendTimeout: 3000,
-        transmitSendTimeout: null,
-        autoReconnect: {},
-        autoSubscribeOnConnect: true,
-        handshakeAttachment: undefined,
-        wsOptions: {},
-        tokenStore: null
-    };
+    private readonly options: Required<SocketOptions>;
 
     private readonly autoReconnectOptions: Required<AutoReconnectOptions> = {
         active: true,
@@ -148,7 +134,24 @@ export default class Socket {
     private readonly _onMessageHandler;
 
     constructor(options: SocketOptions = {}) {
+        this.options = {
+            hostname: DEFAULT_HOSTNAME,
+            port: getDefaultPort(options.secure ?? DEFAULT_SECURE),
+            secure: DEFAULT_SECURE,
+            path: '/ziron',
+            connectTimeout: 20000,
+            ackTimeout: 7000,
+            invokeSendTimeout: 3000,
+            transmitSendTimeout: null,
+            autoReconnect: {},
+            autoSubscribeOnConnect: true,
+            handshakeAttachment: undefined,
+            wsOptions: {},
+            tokenStore: null
+        };
         Object.assign(this.options,options);
+        if(!this.options.path.startsWith('/')) this.options.path = ('/' + this.options.path);
+
         Object.assign(this.autoReconnectOptions,options.autoReconnect);
 
         this._url = this._createUrl();

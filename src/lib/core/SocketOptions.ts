@@ -6,6 +6,7 @@ Copyright(c) Luca Scaringella
 
 import {ClientOptions as WSClientOptions} from "ws";
 import TokenStore from "../main/tokenStore/TokenStore";
+import {WINDOW_DEFINED} from "../main/utils/Constants";
 
 export interface AutoReconnectOptions {
     /**
@@ -45,4 +46,10 @@ export default interface SocketOptions {
      * @default undefined
      */
     tokenStore?: TokenStore | null
+}
+
+export const DEFAULT_HOSTNAME = WINDOW_DEFINED && window.location && window.location.hostname || 'localhost';
+export const DEFAULT_SECURE = WINDOW_DEFINED && window.location && window.location.protocol ? (window.location.protocol === 'https:') : false;
+export function getDefaultPort(secure: boolean) {
+    return (WINDOW_DEFINED && window.location && window.location.port) ? parseInt(window.location.port) : secure ? 443: 80;
 }
