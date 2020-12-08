@@ -90,6 +90,18 @@ export default class Socket {
 
     private readonly _tokenStoreEngine: TokenStoreEngine;
 
+    public readonly signedAuthToken: string | null = null;
+    public readonly authToken: any | null = null;
+    public readonly authenticated: boolean = false;
+    private setAuth<PT extends null | object>(authToken: PT, signedAuthToken: PT extends null ? null : string) {
+        const oldAuthToken = this.authToken;
+        (this as Writable<Socket>).authToken = authToken;
+        (this as Writable<Socket>).signedAuthToken = signedAuthToken;
+        (this as Writable<Socket>).authenticated = authToken != null;
+        if(oldAuthToken !== authToken)
+            this._emit('authTokenChange',authToken,oldAuthToken);
+    };
+
     public readonly reconnectAttempts: number = 0;
 
     public readonly procedures: Procedures = {};
@@ -101,6 +113,22 @@ export default class Socket {
     public onUnknownInvoke: InvokeListener = () => {};
 
     public readonly receivers: Receivers = {
+        [InternalServerTransmits.ConnectionReady]: EMPTY_HANDLER,
+        [InternalServerTransmits.SetAuthToken]: (signedAuthToken: string) => {
+            const authToken = extractAuthToken(signedAuthToken);
+            if (authToken) {
+                this.setAuth(authToken, signedAuthToken);
+                // noinspection JSIgnoredPromiseFromCall
+                this._tokenStoreEngine.saveToken(signedAuthToken);
+            }
+        },
+        [InternalServerTransmits.RemoveAuthToken]: () => {
+            this.setAuth(null,null);
+            // noinspection JSIgnoredPromiseFromCall
+            this._tokenStoreEngine.removeToken();
+        },
+        [InternalServerTransmits.KickOut]: EMPTY_HANDLER,
+        [InternalServerTransmits.Publish]: EMPTY_HANDLER
     };
     /**
      * @description
@@ -322,6 +350,22 @@ export default class Socket {
 
         clearTimeout(this._reconnectTimeoutTicker);
         this._reconnectTimeoutTicker = setTimeout(() => this._tryConnect(), timeout);
+    }
+
+    async authenticate(signedAuthToken: string) {
+        await this.invoke(InternalServerProcedures.Authenticate,signedAuthToken);
+        const authToken = extractAuthToken(signedAuthToken);
+        if (authToken) this.setAuth(authToken, signedAuthToken);
+        // noinspection ES6MissingAwait
+        this._tokenStoreEngine.saveToken(signedAuthToken);
+    }
+
+    async deauthenticate() {
+        if(this._state === SocketConnectionState.Open)
+            await this.transmit(InternalServerReceivers.Deauthenticate);
+        this.setAuth(null,null);
+        // noinspection ES6MissingAwait
+        this._tokenStoreEngine.removeToken();
     }
 
     isConnected(): boolean {
