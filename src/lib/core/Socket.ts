@@ -304,4 +304,19 @@ export default class Socket {
         this._emit('disconnect',code,reason);
         this._state = SocketConnectionState.Closed;
     }
+
+    private _createUrl() {
+        let port = '';
+        if(this.options.port && ((this.options.secure && this.options.port !== 443) ||
+            (!this.options.secure && this.options.port !== 80))) port = ':' + this.options.port;
+        return `${this.options.secure ? 'wss' : 'ws'}://${this.options.hostname}${port}${this.options.path}`;
+    }
+
+    private async _createHandshakeUrl() {
+        const loadToken = await this._tokenStoreEngine.loadToken();
+        const props: string[] = [];
+        if(loadToken) props.push(`"t":"${loadToken}"`)
+        if(this._stringifiedHandshakeAttachment) props.push(`"a":${this._stringifiedHandshakeAttachment}`);
+        return this._url + '?' + encodeURIComponent(`{${props.join(',')}}`);
+    }
 }
