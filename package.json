@@ -24,7 +24,7 @@
     "@types/ws": "^7.4.0",
     "zation-core-errors": "1.2.1",
     "zation-core-events": "1.0.1",
-    "ziron-engine": "0.3.3",
+    "ziron-engine": "0.3.4",
     "buffer": "^6.0.3"
   },
   "devDependencies": {
