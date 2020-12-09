@@ -399,7 +399,7 @@ export default class Socket {
     }
 
     transmit<C extends boolean | undefined = undefined>
-        (event: string, data?: any, options: {batchTimeLimit?: number, sendTimeout?: number | null, cancelable?: C} & PreparePackageOptions = {})
+        (event: string, data?: any, options: {batchTime?: number, sendTimeout?: number | null, cancelable?: C} & PreparePackageOptions = {})
         : C extends true ? CancelablePromise<void> : Promise<void>
     {
         if(options.sendTimeout === undefined)
@@ -410,7 +410,7 @@ export default class Socket {
         if(this._state !== SocketConnectionState.Open) this._tryConnect();
 
         if(options.cancelable || options.sendTimeout != null) {
-            const sendP = this._transport.sendPreparedPackageWithPromise(preparedPackage,options.batchTimeLimit);
+            const sendP = this._transport.sendPreparedPackageWithPromise(preparedPackage,options.batchTime);
             const cp = toCancelablePromise(sendP, () => this._transport.tryCancelPackage(preparedPackage));
             if(options.sendTimeout != null) {
                 const timeout = setTimeout(() => {
@@ -420,11 +420,11 @@ export default class Socket {
             }
             return cp as any;
         }
-        else return this._transport.sendPreparedPackageWithPromise(preparedPackage,options.batchTimeLimit) as any;
+        else return this._transport.sendPreparedPackageWithPromise(preparedPackage,options.batchTime) as any;
     }
 
     invoke<RDT extends true | false | undefined, C extends boolean | undefined = undefined>
-    (event: string, data?: any, options: {batchTimeLimit?: number, sendTimeout?: number | null, cancelable?: C, returnDataType?: RDT, ackTimeout?: number} & PreparePackageOptions = {})
+    (event: string, data?: any, options: {batchTime?: number, sendTimeout?: number | null, cancelable?: C, returnDataType?: RDT, ackTimeout?: number} & PreparePackageOptions = {})
         : C extends true ? CancelablePromise<RDT extends true ? [any,DataType] : any> : Promise<RDT extends true ? [any,DataType] : any>
     {
         if(options.sendTimeout === undefined)
@@ -435,7 +435,7 @@ export default class Socket {
         if(this._state !== SocketConnectionState.Open) this._tryConnect();
 
         if(options.sendTimeout != null) {
-            const sendP = this._transport.sendPreparedPackageWithPromise(preparedPackage,options.batchTimeLimit);
+            const sendP = this._transport.sendPreparedPackageWithPromise(preparedPackage,options.batchTime);
             const cp = toCancelablePromise(preparedPackage.promise, () => this._transport.tryCancelPackage(preparedPackage));
             const timeout = setTimeout(() => {
                 cp.cancel(new TimeoutError('Invoke send timeout reached.','SendTimeout'))
@@ -444,7 +444,7 @@ export default class Socket {
             return cp as any;
         }
         else {
-            this._transport.sendPreparedPackage(preparedPackage,options.batchTimeLimit);
+            this._transport.sendPreparedPackage(preparedPackage,options.batchTime);
             return options.cancelable ? toCancelablePromise(preparedPackage.promise, () => this._transport.tryCancelPackage(preparedPackage)) as any :
                 preparedPackage.promise as any;
         }
