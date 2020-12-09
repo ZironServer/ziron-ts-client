@@ -10,27 +10,122 @@ import {WINDOW_DEFINED} from "../main/utils/Constants";
 
 export interface AutoReconnectOptions {
     /**
+     * Defines if the client should try to reconnect to the server when the connection is lost.
+     * Notice that the client will automatically resubscribe all previous channels.
      * @default true
      */
     active?: boolean,
+    /**
+     * Initial delay in milliseconds.
+     * @default 5000
+     */
     initialDelay?: number,
+    /**
+     * Randomness in milliseconds.
+     * @default 5000
+     */
     randomness?: number,
+    /**
+     * Miltiplier (decimal)
+     * @default 1.5
+     */
     multiplier?: number,
+    /**
+     * Max delay in milliseconds.
+     * @default 60000
+     */
     maxDelay?: number | null
 }
 
 export default interface SocketOptions {
+    /**
+     * @description
+     * The hostname where the client should connect to.
+     * @default The current host (from the URL) or localhost.
+     */
     hostname?: string,
+    /**
+     * @description
+     * The port where the client should connect to.
+     * @default Port from the current URL if it fails it is 80 or 443 if the secure option is true.
+     */
     port?: number,
+    /**
+     * @description
+     * Indicates if the client should use TLS (SSL) to create a secure connection to the server.
+     * @default Is true if the current protocol of the URL is https.
+     */
     secure?: boolean,
+    /**
+     * @description
+     * The URL path where the ziron server processes requests.
+     * @default '/ziron'.
+     */
     path?: string,
+    /**
+     * @description
+     * Specifies options for the auto reconnect feature.
+     * @default
+     * {
+     *  active: true,
+     *  initialDelay: 5000,
+     *  multiplier: 1.5,
+     *  randomness: 5000,
+     *  maxDelay: 60000
+     * }
+     */
     autoReconnect?: AutoReconnectOptions,
-    autoSubscribeOnConnect?: boolean,
+    /**
+     * @description
+     * Indicates if channels should be resubscribed automatically after a reconnect.
+     */
+    autoResubscribe?: boolean,
+    /**
+     * @description
+     * Specifies the default connect timeout.
+     * @default 20000
+     */
     connectTimeout?: number,
+    /**
+     * @description
+     * Specifies the default ack timeout.
+     * @default 7000
+     */
     ackTimeout?: number,
+    /**
+     * @description
+     * Specifies the default transmit send timeout.
+     * The send timeout specifies the time limit in that the package should be sent.
+     * If the timeout is reached, the package will be rejected.
+     * When the connection is not open the package is pushed into the buffer.
+     * Soon as possible, the buffer is flushed. If the send timeout is null,
+     * the package will never be rejected and waits until the connection is open.
+     * @default null
+     */
     transmitSendTimeout?: null | number;
+    /**
+     * @description
+     * Specifies the default invoke send timeout.
+     * The send timeout specifies the time limit in that the package should be sent.
+     * If the timeout is reached, the package will be rejected.
+     * When the connection is not open the package is pushed into the buffer.
+     * Soon as possible, the buffer is flushed. If the send timeout is null,
+     * the package will never be rejected and waits until the connection is open.
+     * @default 3000
+     */
     invokeSendTimeout?: null | number;
+    /**
+     * This attachment will be sent to the server when
+     * the client is creating his connection and
+     * can be accessed from the server-side.
+     * @default {}
+     */
     handshakeAttachment?: any,
+    /**
+     * @description
+     * Passes options to the underlying WS module socket.
+     * Be careful this module is only used when the Browser WebSocket is not available.
+     */
     wsOptions?: WSClientOptions,
     /**
      * Specifies the token store that is used to save/load and remove the token.

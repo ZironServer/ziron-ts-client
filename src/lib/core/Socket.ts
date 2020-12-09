@@ -144,7 +144,7 @@ export default class Socket {
             invokeSendTimeout: 3000,
             transmitSendTimeout: null,
             autoReconnect: {},
-            autoSubscribeOnConnect: true,
+            autoResubscribe: true,
             handshakeAttachment: undefined,
             wsOptions: {},
             tokenStore: null
