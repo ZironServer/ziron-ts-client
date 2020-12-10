@@ -487,23 +487,23 @@ export default class Socket {
         }
     }
 
-    async subscribe(channel: string, batch?: number | true) {
+    async subscribe(channel: string, options: {batch?: number | true, sendTimeout?: number | null | undefined} = {}) {
         if(this._channelMap[channel] !== ChannelState.Subscribed) {
-            await this.invoke(InternalServerProcedures.Subscribe,channel,{batch});
+            await this.invoke(InternalServerProcedures.Subscribe,channel,options);
             this._channelMap[channel] = ChannelState.Subscribed;
             this._chEmitter.emit('subscribe/' + channel);
         }
     }
 
     private async _trySubscribe(channel: string, batch?: number | true) {
-        try {await this.subscribe(channel,batch);}
+        try {await this.subscribe(channel,{batch});}
         catch(_){}
     }
 
-    async unsubscribe(channel: string, batch?: number | true) {
+    async unsubscribe(channel: string, options: {batch?: number | true, sendTimeout?: number | null | undefined} = {}) {
         const state = this._channelMap[channel];
         if(state != null) {
-            await this.transmit(InternalServerReceivers.Unsubscribe,channel,{batch});
+            await this.transmit(InternalServerReceivers.Unsubscribe,channel,options);
             delete this._channelMap[channel];
             if(state === ChannelState.Subscribed)
                 this._chEmitter.emit('unsubscribe/' + channel, UnsubscribeReason.Client);
@@ -514,9 +514,12 @@ export default class Socket {
         return this._channelMap[channel] === ChannelState.Subscribed;
     }
 
-    async publish(channel: string, data: any, ack: boolean = true) {
-        if(ack) return this.invoke(InternalServerProcedures.Publish,data);
-        else return this.transmit(InternalServerReceivers.Publish,data);
+    publish<C extends boolean | undefined = undefined, ACK extends boolean | undefined = undefined>
+        (channel: string, data: any, options: {batch?: number | true, sendTimeout?: number | null | undefined, ack?: boolean, cancelable?: C} = {}):
+        C extends true ? CancelablePromise<void> : Promise<void>
+    {
+        if(options.ack) return this.invoke(InternalServerProcedures.Publish,data,options);
+        else return this.transmit(InternalServerReceivers.Publish,data,options);
     }
 
     private _processPendingSubscriptions() {
