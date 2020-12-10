@@ -172,8 +172,16 @@ export default class Socket {
         };
         this._transport.ackTimeout = this.options.ackTimeout;
 
+        this.flushBuffer = this._transport.flushBuffer.bind(this._transport);
+        this.getBufferSize = this._transport.getBufferSize.bind(this._transport);
+        this.sendPreparedPackage = this._transport.sendPreparedPackage.bind(this._transport);
+
         this._onMessageHandler = event => this._transport.emitMessage(event.data);
     }
+
+    public readonly flushBuffer: Transport['flushBuffer'];
+    public readonly getBufferSize: Transport['getBufferSize'];
+    public readonly sendPreparedPackage: Transport['sendPreparedPackage'];
 
     private _onInvoke(event: string,data: any,end: (data?: any) => void,reject: (err?: any) => void, type: DataType) {
         if(this.procedures[event]) return this.procedures[event]!(data,end,reject,type);
