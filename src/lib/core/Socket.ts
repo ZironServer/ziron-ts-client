@@ -35,10 +35,23 @@ type LocalEventEmitter = EventEmitter<{
     'authTokenChange': [object | null,object | null]
 }>;
 
+type ChEventEmitter = EventEmitter<any>;
+
 export const enum SocketConnectionState {
     Open,
     Connecting,
     Closed
+}
+
+export const enum ChannelState {
+    Pending,
+    Subscribed
+}
+
+export const enum UnsubscribeReason {
+    Client,
+    KickOut,
+    BadConnection
 }
 
 type ReceiverListener = (data: any, type: DataType) => void | Promise<void>;
@@ -68,6 +81,9 @@ export default class Socket {
     private _socket: WebSocket;
     private _state: SocketConnectionState = SocketConnectionState.Closed;
 
+    private _channelMap: Record<string,ChannelState> = {};
+    private readonly _chEmitter: ChEventEmitter = new EventEmitter();
+
     private _currentPingTimeout: number = 200000;
     private _pingTimeoutTicker: NodeJS.Timeout;
     private _connectTimeoutTicker: NodeJS.Timeout;
@@ -84,8 +100,10 @@ export default class Socket {
         (this as Writable<Socket>).authToken = authToken;
         (this as Writable<Socket>).signedAuthToken = signedAuthToken;
         (this as Writable<Socket>).authenticated = authToken != null;
-        if(oldAuthToken !== authToken)
+        if(oldAuthToken !== authToken) {
             this._emit('authTokenChange',authToken,oldAuthToken);
+            this._processPendingSubscriptions();
+        }
     };
 
     public readonly reconnectAttempts: number = 0;
@@ -113,8 +131,16 @@ export default class Socket {
             // noinspection JSIgnoredPromiseFromCall
             this._tokenStoreEngine.removeToken();
         },
-        [InternalServerTransmits.KickOut]: EMPTY_HANDLER,
-        [InternalServerTransmits.Publish]: EMPTY_HANDLER
+        [InternalServerTransmits.KickOut]: ([channel,data]: [string,any]) => {
+            if(this._channelMap[channel] === ChannelState.Subscribed) {
+                this._channelMap[channel] = ChannelState.Pending;
+                this._chEmitter.emit('unsubscribe/' + channel, UnsubscribeReason.KickOut, data);
+            }
+        },
+        [InternalServerTransmits.Publish]: ([channel,data]: [string,any]) => {
+            if(this.hasSubscribed(channel))
+                this._chEmitter.emit('publish/' + channel, data);
+        }
     };
     /**
      * @description
@@ -262,6 +288,8 @@ export default class Socket {
                 break;
         }
 
+        this._suspendSubscriptions();
+
         const socket = this._socket;
 
         if (this.autoReconnectOptions.active)
@@ -318,6 +346,7 @@ export default class Socket {
             this._transport.emitOpen();
             this._connectDeferred.resolve();
             this._emit('connect');
+            this._processPendingSubscriptions();
         };
     }
 
@@ -458,4 +487,98 @@ export default class Socket {
         }
     }
 
+    async subscribe(channel: string, batch?: number | true) {
+        if(this._channelMap[channel] !== ChannelState.Subscribed) {
+            await this.invoke(InternalServerProcedures.Subscribe,channel,{batch});
+            this._channelMap[channel] = ChannelState.Subscribed;
+            this._chEmitter.emit('subscribe/' + channel);
+        }
+    }
+
+    private async _trySubscribe(channel: string, batch?: number | true) {
+        try {await this.subscribe(channel,batch);}
+        catch(_){}
+    }
+
+    async unsubscribe(channel: string, batch?: number | true) {
+        const state = this._channelMap[channel];
+        if(state != null) {
+            await this.transmit(InternalServerReceivers.Unsubscribe,channel,{batch});
+            delete this._channelMap[channel];
+            if(state === ChannelState.Subscribed)
+                this._chEmitter.emit('unsubscribe/' + channel, UnsubscribeReason.Client);
+        }
+    }
+
+    hasSubscribed(channel: string): boolean {
+        return this._channelMap[channel] === ChannelState.Subscribed;
+    }
+
+    async publish(channel: string, data: any, ack: boolean = true) {
+        if(ack) return this.invoke(InternalServerProcedures.Publish,data);
+        else return this.transmit(InternalServerReceivers.Publish,data);
+    }
+
+    private _processPendingSubscriptions() {
+        const channels = Object.keys(this._channelMap);
+        for(let i = 0, len = channels.length; i < len; i++) {
+            if(this._channelMap[channels[i]] !== ChannelState.Subscribed) {
+                // noinspection JSIgnoredPromiseFromCall
+                this._trySubscribe(channels[i],true);
+            }
+        }
+        this.flushBuffer();
+    }
+
+    private _suspendSubscriptions() {
+        const channels = Object.keys(this._channelMap);
+        for(let i = 0, len = channels.length, channel: string; i < len; i++) {
+            channel = channels[i];
+            if(this._channelMap[channel] === ChannelState.Subscribed) {
+                this._chEmitter.emit('unsubscribe/' + channel, UnsubscribeReason.BadConnection);
+                this._channelMap[channel] = ChannelState.Pending;
+            }
+        }
+    }
+
+    //channel events
+    onPublish(channel: string, listener: (data: any) => any) {
+        this._chEmitter.on('publish/' + channel, listener);
+    }
+    oncePublish(channel: string, timeout?: number): Promise<any>
+    oncePublish(channel: string, listener: (data: any) => any): void
+    oncePublish(channel: string, v?): any {
+        this._chEmitter.once('publish/' + channel, v);
+    }
+    offPublish(channel: string, listener?: () => void) {
+        this._chEmitter.off('publish/' + channel, listener as any);
+    }
+
+    onSubscribe(channel: string, listener: () => any) {
+        this._chEmitter.on('subscribe/' + channel, listener);
+    }
+    onceSubscribe(channel: string, timeout?: number): Promise<any>
+    onceSubscribe(channel: string, listener: () => any): void
+    onceSubscribe(channel: string, v?): any {
+        this._chEmitter.once('subscribe/' + channel, v);
+    }
+    offSubscribe(channel: string, listener?: () => void) {
+        this._chEmitter.off('subscribe/' + channel, listener as any);
+    }
+
+    onUnsubscribe(channel: string, listener: (reason: UnsubscribeReason,data?: any) => any) {
+        this._chEmitter.on('unsubscribe/' + channel, listener);
+    }
+    onceUnsubscribe(channel: string, timeout?: number): Promise<any>
+    onceUnsubscribe(channel: string, listener: (reason: UnsubscribeReason,data?: any) => any): void
+    onceUnsubscribe(channel: string, v?): any {
+        this._chEmitter.once('unsubscribe/' + channel, v);
+    }
+    offUnsubscribe(channel: string, listener?: (reason: UnsubscribeReason,data?: any) => void) {
+        this._chEmitter.off('unsubscribe/' + channel, listener as any);
+    }
+
+    removeAllChannelListener() {
+        this._chEmitter.off();
+    }
 }

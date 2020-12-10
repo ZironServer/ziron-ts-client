@@ -5,7 +5,7 @@ Copyright(c) Luca Scaringella
  */
 
 import EventEmitter from 'emitix';
-import Socket from "./lib/core/Socket";
+import Socket, {UnsubscribeReason} from "./lib/core/Socket";
 import TokenStore from "./lib/main/tokenStore/TokenStore";
 import {createLocalStorageTokenStore} from "./lib/main/tokenStore/LocalStorageTokenStore";
 import SocketOptions from "./lib/core/SocketOptions";
@@ -21,5 +21,6 @@ export {
     createLocalStorageTokenStore,
     CancelablePromise,
     CancellationError,
-    BackError
+    BackError,
+    UnsubscribeReason
 }
