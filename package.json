@@ -29,13 +29,17 @@
   },
   "devDependencies": {
     "typescript": "^3.7.5",
+    "gulp": "4.0.2",
+    "gulp-optimize-js": "1.1.0",
+    "gulp-terser": "1.2.0",
+    "gulp-typescript": "^5.0.1",
+    "del": "^5.1.0",
     "ts-node": "^8.0.3",
     "mocha": "7.0.1",
     "@types/mocha": "^7.0.2"
   },
   "scripts": {
-    "build": "npm run compile",
-    "compile": "rm -rf dist/ && tsc -p ./",
+    "build": "gulp build",
     "prepublishOnly": "npm run build",
     "test": "mocha --exit -r ts-node/register test/**/*.ts"
   },
