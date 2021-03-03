@@ -25,6 +25,7 @@ import {ConnectAbortError} from "../main/Errors";
 import EventEmitter from "emitix";
 import {CancelablePromise, toCancelablePromise} from "../main/utils/CancelablePromise";
 import {extractAuthToken} from "../main/utils/AuthToken";
+import * as URL from 'url';
 
 type LocalEventEmitter = EventEmitter<{
     'error': [Error],
@@ -159,7 +160,24 @@ export default class Socket {
     private readonly _transport: Transport;
     private readonly _onMessageHandler;
 
-    constructor(options: SocketOptions = {}) {
+    /**
+     * Creates a new Socket with an URL string.
+     * With the second parameter, you can specify the socket's options
+     * and overwrite parsed information from the URL.
+     * @param url
+     * @param options
+     */
+    constructor(url: string, options?: SocketOptions)
+    /**
+     * Creates a new Socket with specific options.
+     * @param options
+     */
+    constructor(options?: SocketOptions)
+    constructor(v1?: SocketOptions | string, v2?: SocketOptions) {
+
+        const options = typeof v1 === 'string' ?
+            Object.assign(Socket.parseOptionsFromUrl(v1),v2 || {}) : v1 || {};
+
         this.options = {
             hostname: DEFAULT_HOSTNAME,
             port: getDefaultPort(options.secure ?? DEFAULT_SECURE),
@@ -203,6 +221,22 @@ export default class Socket {
         this.sendPreparedPackage = this._transport.sendPreparedPackage.bind(this._transport);
 
         this._onMessageHandler = event => this._transport.emitMessage(event.data);
+    }
+
+    private static parseOptionsFromUrl(url: string): SocketOptions {
+        const parsedUrl = URL.parse(url);
+
+        const options: SocketOptions = {};
+
+        if(parsedUrl.port != null) {
+            const parsedPort = parseInt(parsedUrl.port);
+            if(!isNaN(parsedPort)) options.port = parsedPort;
+        }
+        if(parsedUrl.hostname != null) options.hostname = parsedUrl.hostname;
+        options.secure = parsedUrl.protocol === 'wss:';
+        if(parsedUrl.pathname != null) options.path = parsedUrl.pathname;
+
+        return options;
     }
 
     public readonly flushBuffer: Transport['flushBuffer'];
