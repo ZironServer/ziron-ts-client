@@ -118,7 +118,7 @@ export default interface SocketOptions {
      * This attachment will be sent to the server when
      * the client is creating his connection and
      * can be accessed from the server-side.
-     * @default {}
+     * @default undefined
      */
     handshakeAttachment?: any,
     /**
