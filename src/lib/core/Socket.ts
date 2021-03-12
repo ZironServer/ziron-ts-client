@@ -89,7 +89,7 @@ export default class Socket {
     private _pingTimeoutTicker: NodeJS.Timeout;
     private _connectTimeoutTicker: NodeJS.Timeout;
     private _reconnectTimeoutTicker: NodeJS.Timeout;
-    private _connectDeferred: Deferred<void>;
+    private _connectDeferred: Deferred<any>;
 
     private readonly _tokenStoreEngine: TokenStoreEngine;
 
@@ -253,7 +253,7 @@ export default class Socket {
         this.onUnknownTransmit(event,data,type);
     }
 
-    async connect(timeout?: number): Promise<void> {
+    async connect(timeout?: number): Promise<any> {
         if(this._state === SocketConnectionState.Closed) {
             this._state = SocketConnectionState.Connecting;
 
@@ -364,7 +364,7 @@ export default class Socket {
 
     private _boundOnSocketOpen: Socket['_onSocketOpen'] = this._onSocketOpen.bind(this);
     private _onSocketOpen() {
-        (this.receivers as Writable<Receivers>)[InternalServerTransmits.ConnectionReady] = ([pingInterval,authTokenState]) => {
+        (this.receivers as Writable<Receivers>)[InternalServerTransmits.ConnectionReady] = ([pingInterval,authTokenState,readyData]) => {
             this._currentPingTimeout = pingInterval + 1000;
 
             if(typeof authTokenState === 'number') {
@@ -378,7 +378,7 @@ export default class Socket {
             clearTimeout(this._connectTimeoutTicker);
             this._renewPingTimeout();
             this._transport.emitOpen();
-            this._connectDeferred.resolve();
+            this._connectDeferred.resolve(readyData);
             this._emit('connect');
             this._processPendingSubscriptions();
         };
