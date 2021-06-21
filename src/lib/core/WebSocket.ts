@@ -10,14 +10,14 @@ export interface WebSocket {
     binaryType: 'arraybuffer' | 'blob';
 }
 
-export let createWebSocket: (url: string,options?: ClientOptions) => WebSocket;
+export let createWebSocket: (url: string,protocol: string,options?: ClientOptions) => WebSocket;
 if (typeof window === 'object' && window.WebSocket) {
-    createWebSocket = (url) => new (window as any).WebSocket(url);
+    createWebSocket = (url,protocol) => new (window as any).WebSocket(url,protocol);
 }
 else if(typeof window === 'object' && (window as any).MozWebSocket) {
-    createWebSocket = (url) => new (window as any).MozWebSocket(url);
+    createWebSocket = (url,protocol) => new (window as any).MozWebSocket(url,protocol);
 }
 else {
     const WsWebSocket = require('ws');
-    createWebSocket = (url, options) => new WsWebSocket(url, null, options);
+    createWebSocket = (url,protocol, options) => new WsWebSocket(url, protocol, options);
 }

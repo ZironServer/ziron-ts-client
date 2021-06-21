@@ -263,12 +263,12 @@ export default class Socket {
             this._connectDeferred = connectDeferred;
 
             try {
-                const handshakeUrl = await this._createHandshakeUrl();
+                const protocolArgs = await this._createConnectionProtocolArgs();
 
                 this._connectTimeoutTicker = setTimeout(this._boundConnectTimeoutReached,
                     timeout || this.options.connectTimeout);
 
-                const socket = createWebSocket(handshakeUrl,this.options.wsOptions);
+                const socket = createWebSocket(this._url,protocolArgs,this.options.wsOptions);
                 this._socket = socket;
 
                 socket.binaryType = 'arraybuffer';
@@ -461,12 +461,12 @@ export default class Socket {
         return `${this.options.secure ? 'wss' : 'ws'}://${this.options.hostname}${port}${this.options.path}`;
     }
 
-    private async _createHandshakeUrl() {
-        const loadToken = await this._tokenStoreEngine.loadToken();
+    private async _createConnectionProtocolArgs() {
+        const loadedToken = await this._tokenStoreEngine.loadToken();
         const props: string[] = [];
-        if(loadToken) props.push(`"t":"${loadToken}"`)
+        if(loadedToken) props.push(`"t":"${loadedToken}"`)
         if(this._stringifiedHandshakeAttachment) props.push(`"a":${this._stringifiedHandshakeAttachment}`);
-        return this._url + '?' + encodeURIComponent(`{${props.join(',')}}`);
+        return `ziron?{${props.join(',')}}`;
     }
 
     transmit<C extends boolean | undefined = undefined>
