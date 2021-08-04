@@ -59,7 +59,7 @@ export default interface SocketOptions {
     /**
      * @description
      * The URL path where the ziron server processes requests.
-     * @default '/ziron'.
+     * @default '/'.
      */
     path?: string,
     /**

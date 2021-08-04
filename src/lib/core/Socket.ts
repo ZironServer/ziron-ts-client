@@ -182,7 +182,7 @@ export default class Socket {
             hostname: DEFAULT_HOSTNAME,
             port: getDefaultPort(options.secure ?? DEFAULT_SECURE),
             secure: DEFAULT_SECURE,
-            path: '/ziron',
+            path: '/',
             connectTimeout: 20000,
             ackTimeout: 7000,
             invokeSendTimeout: 3000,
