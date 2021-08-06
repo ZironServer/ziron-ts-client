@@ -139,10 +139,10 @@ export default class Socket {
                 this._chEmitter.emit('unsubscribe', channel, UnsubscribeReason.KickOut, data);
             }
         },
-        [InternalServerTransmits.Publish]: ([channel,data]: [string,any]) => {
+        [InternalServerTransmits.Publish]: ([channel,data]: [string,any],type: DataType) => {
             if(this.hasSubscribed(channel)) {
-                this._chEmitter.emit('publish/' + channel, data);
-                this._chEmitter.emit('publish', channel, data);
+                this._chEmitter.emit('publish/' + channel, data, type);
+                this._chEmitter.emit('publish', channel, data, type);
             }
         }
     };
@@ -598,17 +598,17 @@ export default class Socket {
     }
 
     //channel events
-    onPublish(abstractListener: (channel: string,data: any) => any): void
-    onPublish(channel: string, listener: (data: any) => any): void
+    onPublish(abstractListener: (channel: string,data: any,type: DataType) => any): void
+    onPublish(channel: string, listener: (data: any,type: DataType) => any): void
     onPublish(p1: any, p2?: any) {
         typeof p1 === 'string' ? this._chEmitter.on('publish/' + p1, p2) :
             this._chEmitter.on('publish', p1);
     }
 
-    oncePublish(timeout?: number): Promise<[string,any]>
-    oncePublish(abstractListener: (channel: string,data: any) => any): void
-    oncePublish(channel: string, timeout?: number): Promise<[any]>
-    oncePublish(channel: string, listener: (data: any) => any): void
+    oncePublish(timeout?: number): Promise<[string,any,DataType]>
+    oncePublish(abstractListener: (channel: string,data: any,type: DataType) => any): void
+    oncePublish(channel: string, timeout?: number): Promise<[any,DataType]>
+    oncePublish(channel: string, listener: (data: any,type: DataType) => any): void
     oncePublish(p1?: any,p2?: any): any {
         return typeof p1 === 'string' ? this._chEmitter.once('publish/' + p1, p2) :
             this._chEmitter.once('publish', p1);
@@ -618,12 +618,12 @@ export default class Socket {
      * Notice that when you don't provide a channel name,
      * only abstract listeners are affected.
      */
-    offPublish(abstractListener?: (channel: string,data: any) => any): void
+    offPublish(abstractListener?: (channel: string,data: any,type: DataType) => any): void
     /**
      * Notice that when you don't provide a channel name,
      * only abstract listeners are affected.
      */
-    offPublish(channel: string, listener?: (data: any) => any): void
+    offPublish(channel: string, listener?: (data: any,type: DataType) => any): void
     offPublish(p1?: any,p2?: any) {
         typeof p1 === 'string' ? this._chEmitter.off('publish/' + p1, p2) :
             this._chEmitter.off('publish', p1);
