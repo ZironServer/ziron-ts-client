@@ -136,11 +136,14 @@ export default class Socket {
             if(this._channelMap[channel] === ChannelState.Subscribed) {
                 this._channelMap[channel] = ChannelState.Pending;
                 this._chEmitter.emit('unsubscribe/' + channel, UnsubscribeReason.KickOut, data);
+                this._chEmitter.emit('unsubscribe', channel, UnsubscribeReason.KickOut, data);
             }
         },
         [InternalServerTransmits.Publish]: ([channel,data]: [string,any]) => {
-            if(this.hasSubscribed(channel))
+            if(this.hasSubscribed(channel)) {
                 this._chEmitter.emit('publish/' + channel, data);
+                this._chEmitter.emit('publish', channel, data);
+            }
         }
     };
     /**
@@ -533,6 +536,7 @@ export default class Socket {
             await this.invoke(InternalServerProcedures.Subscribe,channel,options);
             this._channelMap[channel] = ChannelState.Subscribed;
             this._chEmitter.emit('subscribe/' + channel);
+            this._chEmitter.emit('subscribe', channel);
         }
     }
 
@@ -546,8 +550,10 @@ export default class Socket {
         if(state != null) {
             await this.transmit(InternalServerReceivers.Unsubscribe,channel,options);
             delete this._channelMap[channel];
-            if(state === ChannelState.Subscribed)
+            if(state === ChannelState.Subscribed) {
                 this._chEmitter.emit('unsubscribe/' + channel, UnsubscribeReason.Client);
+                this._chEmitter.emit('unsubscribe', channel, UnsubscribeReason.Client);
+            }
         }
     }
 
@@ -585,46 +591,104 @@ export default class Socket {
             channel = channels[i];
             if(this._channelMap[channel] === ChannelState.Subscribed) {
                 this._chEmitter.emit('unsubscribe/' + channel, UnsubscribeReason.BadConnection);
+                this._chEmitter.emit('unsubscribe', channel, UnsubscribeReason.BadConnection);
                 this._channelMap[channel] = ChannelState.Pending;
             }
         }
     }
 
     //channel events
-    onPublish(channel: string, listener: (data: any) => any) {
-        this._chEmitter.on('publish/' + channel, listener);
+    onPublish(abstractListener: (channel: string,data: any) => any): void
+    onPublish(channel: string, listener: (data: any) => any): void
+    onPublish(p1: any, p2?: any) {
+        typeof p1 === 'string' ? this._chEmitter.on('publish/' + p1, p2) :
+            this._chEmitter.on('publish', p1);
     }
-    oncePublish(channel: string, timeout?: number): Promise<any>
+
+    oncePublish(timeout?: number): Promise<[string,any]>
+    oncePublish(abstractListener: (channel: string,data: any) => any): void
+    oncePublish(channel: string, timeout?: number): Promise<[any]>
     oncePublish(channel: string, listener: (data: any) => any): void
-    oncePublish(channel: string, v?): any {
-        this._chEmitter.once('publish/' + channel, v);
-    }
-    offPublish(channel: string, listener?: () => void) {
-        this._chEmitter.off('publish/' + channel, listener as any);
+    oncePublish(p1?: any,p2?: any): any {
+        return typeof p1 === 'string' ? this._chEmitter.once('publish/' + p1, p2) :
+            this._chEmitter.once('publish', p1);
     }
 
-    onSubscribe(channel: string, listener: () => any) {
-        this._chEmitter.on('subscribe/' + channel, listener);
+    /**
+     * Notice that when you don't provide a channel name,
+     * only abstract listeners are affected.
+     */
+    offPublish(abstractListener?: (channel: string,data: any) => any): void
+    /**
+     * Notice that when you don't provide a channel name,
+     * only abstract listeners are affected.
+     */
+    offPublish(channel: string, listener?: (data: any) => any): void
+    offPublish(p1?: any,p2?: any) {
+        typeof p1 === 'string' ? this._chEmitter.off('publish/' + p1, p2) :
+            this._chEmitter.off('publish', p1);
     }
-    onceSubscribe(channel: string, timeout?: number): Promise<any>
+
+    onSubscribe(abstractListener: (channel: string) => any): void
+    onSubscribe(channel: string, listener: () => any): void
+    onSubscribe(p1: any, p2?: any) {
+        typeof p1 === 'string' ? this._chEmitter.on('subscribe/' + p1, p2) :
+            this._chEmitter.on('subscribe', p1);
+    }
+
+    onceSubscribe(timeout?: number): Promise<[string]>
+    onceSubscribe(abstractListener: (channel: string) => any): void
+    onceSubscribe(channel: string, timeout?: number): Promise<[]>
     onceSubscribe(channel: string, listener: () => any): void
-    onceSubscribe(channel: string, v?): any {
-        this._chEmitter.once('subscribe/' + channel, v);
-    }
-    offSubscribe(channel: string, listener?: () => void) {
-        this._chEmitter.off('subscribe/' + channel, listener as any);
+    onceSubscribe(p1?: any, p2?: any): any {
+        return typeof p1 === 'string' ? this._chEmitter.once('subscribe/' + p1, p2) :
+            this._chEmitter.once('subscribe', p1);
     }
 
-    onUnsubscribe(channel: string, listener: (reason: UnsubscribeReason,data?: any) => any) {
-        this._chEmitter.on('unsubscribe/' + channel, listener);
+    /**
+     * Notice that when you don't provide a channel name,
+     * only abstract listeners are affected.
+     */
+    offSubscribe(abstractListener?: (channel: string) => any): void
+    /**
+     * Notice that when you don't provide a channel name,
+     * only abstract listeners are affected.
+     */
+    offSubscribe(channel: string, listener?: () => any): void
+    offSubscribe(p1?: any,p2?: any) {
+        typeof p1 === 'string' ? this._chEmitter.off('subscribe/' + p1, p2) :
+            this._chEmitter.off('subscribe', p1);
     }
-    onceUnsubscribe(channel: string, timeout?: number): Promise<any>
+
+    onUnsubscribe(abstractListener: (channel: string,reason: UnsubscribeReason,data?: any) => any): void
+    onUnsubscribe(channel: string, listener: (reason: UnsubscribeReason,data?: any) => any): void
+    onUnsubscribe(p1: any, p2?: any) {
+        typeof p1 === 'string' ? this._chEmitter.on('unsubscribe/' + p1, p2) :
+            this._chEmitter.on('unsubscribe', p1);
+    }
+
+    onceUnsubscribe(timeout?: number): Promise<[string,UnsubscribeReason,any]>
+    onceUnsubscribe(abstractListener: (channel: string,reason: UnsubscribeReason,data?: any) => any): void
+    onceUnsubscribe(channel: string, timeout?: number): Promise<[UnsubscribeReason,any]>
     onceUnsubscribe(channel: string, listener: (reason: UnsubscribeReason,data?: any) => any): void
-    onceUnsubscribe(channel: string, v?): any {
-        this._chEmitter.once('unsubscribe/' + channel, v);
+    onceUnsubscribe(p1?: any, p2?: any): any {
+        return typeof p1 === 'string' ? this._chEmitter.once('unsubscribe/' + p1, p2) :
+            this._chEmitter.once('unsubscribe', p1);
     }
-    offUnsubscribe(channel: string, listener?: (reason: UnsubscribeReason,data?: any) => void) {
-        this._chEmitter.off('unsubscribe/' + channel, listener as any);
+
+    /**
+     * Notice that when you don't provide a channel name,
+     * only abstract listeners are affected.
+     */
+    offUnsubscribe(abstractListener?: (channel: string,reason: UnsubscribeReason,data?: any) => any): void
+    /**
+     * Notice that when you don't provide a channel name,
+     * only abstract listeners are affected.
+     */
+    offUnsubscribe(channel: string, listener?: (reason: UnsubscribeReason,data?: any) => any): void
+    offUnsubscribe(p1?: any,p2?: any) {
+        typeof p1 === 'string' ? this._chEmitter.off('unsubscribe/' + p1, p2) :
+            this._chEmitter.off('unsubscribe', p1);
     }
 
     removeAllChannelListener() {
