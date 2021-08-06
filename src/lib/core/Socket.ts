@@ -545,7 +545,28 @@ export default class Socket {
         catch(_){}
     }
 
-    async unsubscribe(channel: string, options: {batch?: number | true, sendTimeout?: number | null | undefined} = {}) {
+    /**
+     * Unsubscribe from all current channels.
+     * @param options
+     */
+    unsubscribe(options?: {batch?: number | true, sendTimeout?: number | null | undefined})
+    /**
+     * Unsubscribe from a specific channel.
+     * @param channel
+     * @param options
+     */
+    unsubscribe(channel: string, options?: {batch?: number | true, sendTimeout?: number | null | undefined})
+    async unsubscribe(p1?: string | {batch?: number | true, sendTimeout?: number | null | undefined},
+                      p2?: {batch?: number | true, sendTimeout?: number | null | undefined}) {
+        if(typeof p1 === 'string') return this._unsubscribe(p1,p2);
+        else {
+            p1 = p1 || {};
+            return Promise.all(Object.keys(this._channelMap)
+                .map((channel => this._unsubscribe(channel,p1 as {batch?: number | true, sendTimeout?: number | null | undefined}))));
+        }
+    }
+
+    private async _unsubscribe(channel: string, options: {batch?: number | true, sendTimeout?: number | null | undefined} = {}){
         const state = this._channelMap[channel];
         if(state != null) {
             await this.transmit(InternalServerReceivers.Unsubscribe,channel,options);
