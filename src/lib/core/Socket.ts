@@ -582,8 +582,8 @@ export default class Socket {
         return this._channelMap[channel] === ChannelState.Subscribed;
     }
 
-    getSubscriptions(): string[] {
-        return Object.keys(this._channelMap)
+    getSubscriptions(includePending: boolean = false): string[] {
+        return includePending ? Object.keys(this._channelMap) : Object.keys(this._channelMap)
             .filter((channel) => this._channelMap[channel] === ChannelState.Subscribed);
     }
 
