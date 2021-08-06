@@ -223,7 +223,11 @@ export default class Socket {
         this._onMessageHandler = event => this._transport.emitMessage(event.data);
     }
 
-    private static parseOptionsFromUrl(url: string): SocketOptions {
+    /**
+     * Parses the information from an URL to the socket options.
+     * @param url
+     */
+    public static parseOptionsFromUrl(url: string): SocketOptions {
         const parsedUrl = URL.parse(url);
 
         const options: SocketOptions = {};
