@@ -555,6 +555,11 @@ export default class Socket {
         return this._channelMap[channel] === ChannelState.Subscribed;
     }
 
+    getSubscriptions(): string[] {
+        return Object.keys(this._channelMap)
+            .filter((channel) => this._channelMap[channel] === ChannelState.Subscribed);
+    }
+
     publish<C extends boolean | undefined = undefined, ACK extends boolean | undefined = undefined>
         (channel: string, data: any, options: {batch?: number | true, sendTimeout?: number | null | undefined, ack?: boolean, cancelable?: C} = {}):
         C extends true ? CancelablePromise<void> : Promise<void>
