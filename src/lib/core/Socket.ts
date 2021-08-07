@@ -589,7 +589,8 @@ export default class Socket {
     }
 
     publish<C extends boolean | undefined = undefined, ACK extends boolean | undefined = undefined>
-        (channel: string, data: any, options: {batch?: number | true, sendTimeout?: number | null | undefined, ack?: boolean, cancelable?: C} = {}):
+        (channel: string, data: any, options: {batch?: number | true, sendTimeout?: number | null | undefined, ack?: boolean,
+            cancelable?: C} & PreparePackageOptions = {}):
         C extends true ? CancelablePromise<void> : Promise<void>
     {
         if(options.ack) return this.invoke(InternalServerProcedures.Publish,data,options);
