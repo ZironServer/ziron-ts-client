@@ -578,8 +578,9 @@ export default class Socket {
         }
     }
 
-    hasSubscribed(channel: string): boolean {
-        return this._channelMap[channel] === ChannelState.Subscribed;
+    hasSubscribed(channel: string,includePending: boolean = false): boolean {
+        return includePending ? this._channelMap[channel] !== undefined :
+            this._channelMap[channel] === ChannelState.Subscribed;
     }
 
     getSubscriptions(includePending: boolean = false): string[] {
