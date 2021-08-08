@@ -231,6 +231,7 @@ export default class Socket {
      * @param url
      */
     public static parseOptionsFromUrl(url: string): SocketOptions {
+        if(!/^([a-zA-Z]*:\/\/)/.test(url)) url = "ws://" + url;
         const parsedUrl = URL.parse(url);
 
         const options: SocketOptions = {};
