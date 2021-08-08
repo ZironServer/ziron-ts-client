@@ -236,13 +236,13 @@ export default class Socket {
 
         const options: SocketOptions = {};
 
-        if(parsedUrl.port != null) {
+        if(parsedUrl.port) {
             const parsedPort = parseInt(parsedUrl.port);
             if(!isNaN(parsedPort)) options.port = parsedPort;
         }
-        if(parsedUrl.hostname != null) options.hostname = parsedUrl.hostname;
+        if(parsedUrl.hostname) options.hostname = parsedUrl.hostname;
         options.secure = parsedUrl.protocol === 'wss:';
-        if(parsedUrl.pathname != null) options.path = parsedUrl.pathname;
+        if(parsedUrl.pathname) options.path = parsedUrl.pathname;
 
         return options;
     }
