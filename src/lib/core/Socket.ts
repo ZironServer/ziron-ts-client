@@ -593,8 +593,8 @@ export default class Socket {
             cancelable?: C} & PreparePackageOptions = {}):
         C extends true ? CancelablePromise<void> : Promise<void>
     {
-        if(options.ack) return this.invoke(InternalServerProcedures.Publish,data,options);
-        else return this.transmit(InternalServerReceivers.Publish,data,options);
+        if(options.ack) return this.invoke(InternalServerProcedures.Publish,[channel,data],options);
+        else return this.transmit(InternalServerReceivers.Publish,[channel,data],options);
     }
 
     private _processPendingSubscriptions() {
