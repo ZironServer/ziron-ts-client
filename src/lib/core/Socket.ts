@@ -56,7 +56,8 @@ export const enum UnsubscribeReason {
 }
 
 type ReceiverListener = (data: any, type: DataType) => void | Promise<void>;
-type ProcedureListener = (data: any,end: (data?: any) => void,reject: (err?: any) => void, type: DataType) => void | Promise<void>
+type ProcedureListener = (data: any,end: (data?: any, processComplexTypes?: boolean) => void,
+                                 reject: (err?: any) => void, type: DataType) => void | Promise<void>
 
 type Receivers =
     { readonly [key in InternalServerTransmits]: ReceiverListener } &
