@@ -5,7 +5,7 @@ Copyright(c) Luca Scaringella
  */
 
 import EventEmitter                          from 'emitix';
-import Socket, {UnsubscribeReason}           from "./lib/core/Socket";
+import Socket, {UnsubscribeReason, ProcedureListener, ReceiverListener} from "./lib/core/Socket";
 import TokenStore                            from "./lib/main/tokenStore/TokenStore";
 import {createLocalStorageTokenStore}        from "./lib/main/tokenStore/LocalStorageTokenStore";
 import SocketOptions                         from "./lib/core/SocketOptions";
@@ -24,5 +24,7 @@ export {
     CancelablePromise,
     CancellationError,
     prepareMultiTransmit,
-    UnsubscribeReason
+    UnsubscribeReason,
+    ProcedureListener,
+    ReceiverListener
 }
