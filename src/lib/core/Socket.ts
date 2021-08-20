@@ -252,14 +252,14 @@ export default class Socket {
     public readonly getBufferSize: Transport['getBufferSize'];
     public readonly sendPreparedPackage: Transport['sendPreparedPackage'];
 
-    private _onInvoke(event: string,data: any,end: (data?: any) => void,reject: (err?: any) => void, type: DataType) {
-        if(this.procedures[event]) return this.procedures[event]!(data,end,reject,type);
-        this.onUnknownInvoke(event,data,end,reject,type);
+    private _onInvoke(procedure: string,data: any,end: (data?: any) => void,reject: (err?: any) => void, type: DataType) {
+        if(this.procedures[procedure]) return this.procedures[procedure]!(data,end,reject,type);
+        this.onUnknownInvoke(procedure,data,end,reject,type);
     }
 
-    private _onTransmit(event: string,data: any,type: DataType) {
-        if(this.receivers[event]) return this.receivers[event]!(data,type);
-        this.onUnknownTransmit(event,data,type);
+    private _onTransmit(receiver: string,data: any,type: DataType) {
+        if(this.receivers[receiver]) return this.receivers[receiver]!(data,type);
+        this.onUnknownTransmit(receiver,data,type);
     }
 
     async connect(timeout?: number): Promise<any> {
@@ -482,13 +482,13 @@ export default class Socket {
     }
 
     transmit<C extends boolean | undefined = undefined>
-        (event: string, data?: any, options: {batch?: number | true, sendTimeout?: number | null, cancelable?: C} & PreparePackageOptions = {})
+        (receiver: string, data?: any, options: {batch?: number | true, sendTimeout?: number | null, cancelable?: C} & PreparePackageOptions = {})
         : C extends true ? CancelablePromise<void> : Promise<void>
     {
         if(options.sendTimeout === undefined)
             options.sendTimeout = this.options.transmitSendTimeout;
 
-        const preparedPackage = this._transport.prepareTransmit(event,data,options);
+        const preparedPackage = this._transport.prepareTransmit(receiver,data,options);
 
         if(this._state !== SocketConnectionState.Open) this._tryConnect();
 
@@ -507,13 +507,13 @@ export default class Socket {
     }
 
     invoke<RDT extends true | false | undefined, C extends boolean | undefined = undefined>
-    (event: string, data?: any, options: {batch?: number | true, sendTimeout?: number | null, cancelable?: C, returnDataType?: RDT, ackTimeout?: number} & PreparePackageOptions = {})
+    (procedure: string, data?: any, options: {batch?: number | true, sendTimeout?: number | null, cancelable?: C, returnDataType?: RDT, ackTimeout?: number} & PreparePackageOptions = {})
         : C extends true ? CancelablePromise<RDT extends true ? [any,DataType] : any> : Promise<RDT extends true ? [any,DataType] : any>
     {
         if(options.sendTimeout === undefined)
             options.sendTimeout = this.options.invokeSendTimeout;
 
-        const preparedPackage = this._transport.prepareInvoke(event,data,options);
+        const preparedPackage = this._transport.prepareInvoke(procedure,data,options);
 
         if(this._state !== SocketConnectionState.Open) this._tryConnect();
 
