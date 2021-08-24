@@ -12,7 +12,7 @@ import {
     BadConnectionType,
     DataType,
     InvokeListener,
-    PreparePackageOptions,
+    ComplexTypesOption,
     TimeoutError,
     TransmitListener,
     Transport
@@ -482,7 +482,7 @@ export default class Socket {
     }
 
     transmit<C extends boolean | undefined = undefined>
-        (receiver: string, data?: any, options: {batch?: number | true, sendTimeout?: number | null, cancelable?: C} & PreparePackageOptions = {})
+        (receiver: string, data?: any, options: {batch?: number | true, sendTimeout?: number | null, cancelable?: C} & ComplexTypesOption = {})
         : C extends true ? CancelablePromise<void> : Promise<void>
     {
         if(options.sendTimeout === undefined)
@@ -507,7 +507,7 @@ export default class Socket {
     }
 
     invoke<RDT extends true | false | undefined, C extends boolean | undefined = undefined>
-    (procedure: string, data?: any, options: {batch?: number | true, sendTimeout?: number | null, cancelable?: C, returnDataType?: RDT, ackTimeout?: number} & PreparePackageOptions = {})
+    (procedure: string, data?: any, options: {batch?: number | true, sendTimeout?: number | null, cancelable?: C, returnDataType?: RDT, ackTimeout?: number} & ComplexTypesOption = {})
         : C extends true ? CancelablePromise<RDT extends true ? [any,DataType] : any> : Promise<RDT extends true ? [any,DataType] : any>
     {
         if(options.sendTimeout === undefined)
@@ -592,7 +592,7 @@ export default class Socket {
 
     publish<C extends boolean | undefined = undefined, ACK extends boolean | undefined = undefined>
         (channel: string, data?: any, options: {batch?: number | true, sendTimeout?: number | null | undefined, ack?: boolean,
-            cancelable?: C} & PreparePackageOptions = {}):
+            cancelable?: C} & ComplexTypesOption = {}):
         C extends true ? CancelablePromise<void> : Promise<void>
     {
         if(options.ack) return this.invoke(InternalServerProcedures.Publish,[channel,data],options);
