@@ -33,7 +33,7 @@ type LocalEventEmitter = EventEmitter<{
     'connectAbort': [ConnectAbortError],
     'connect': [],
     'disconnect': [number,string],
-    'authTokenChange': [object | null,object | null]
+    'authTokenChange': [object | null,object | null,boolean],
 }>;
 
 type ChEventEmitter = EventEmitter<any>;
@@ -97,13 +97,13 @@ export default class Socket {
     public readonly signedAuthToken: string | null = null;
     public readonly authToken: any | null = null;
     public readonly authenticated: boolean = false;
-    private setAuth<PT extends null | object>(authToken: PT, signedAuthToken: PT extends null ? null : string) {
+    private setAuth<PT extends null | object>(authToken: PT, signedAuthToken: PT extends null ? null : string, self: boolean) {
         const oldAuthToken = this.authToken;
         (this as Writable<Socket>).authToken = authToken;
         (this as Writable<Socket>).signedAuthToken = signedAuthToken;
         (this as Writable<Socket>).authenticated = authToken != null;
         if(oldAuthToken !== authToken) {
-            this._emit('authTokenChange',authToken,oldAuthToken);
+            this._emit('authTokenChange',authToken,oldAuthToken,self);
             this._processPendingSubscriptions();
         }
     };
@@ -123,13 +123,13 @@ export default class Socket {
         [InternalServerTransmits.SetAuthToken]: (signedAuthToken: string) => {
             const authToken = extractAuthToken(signedAuthToken);
             if (authToken) {
-                this.setAuth(authToken, signedAuthToken);
+                this.setAuth(authToken, signedAuthToken, false);
                 // noinspection JSIgnoredPromiseFromCall
                 this._tokenStoreEngine.saveToken(signedAuthToken);
             }
         },
         [InternalServerTransmits.RemoveAuthToken]: () => {
-            this.setAuth(null,null);
+            this.setAuth(null,null,false);
             // noinspection JSIgnoredPromiseFromCall
             this._tokenStoreEngine.removeToken();
         },
@@ -377,7 +377,7 @@ export default class Socket {
             this._currentPingTimeout = pingInterval + 1000;
 
             if(typeof authTokenState === 'number') {
-                this.setAuth(null,null)
+                this.setAuth(null,null,false)
                 if(authTokenState === 2) this._tokenStoreEngine.removeToken();
             }
 
@@ -438,7 +438,7 @@ export default class Socket {
     async authenticate(signedAuthToken: string) {
         await this.invoke(InternalServerProcedures.Authenticate,signedAuthToken);
         const authToken = extractAuthToken(signedAuthToken);
-        if (authToken) this.setAuth(authToken, signedAuthToken);
+        if (authToken) this.setAuth(authToken, signedAuthToken,true);
         // noinspection ES6MissingAwait
         this._tokenStoreEngine.saveToken(signedAuthToken);
     }
@@ -446,7 +446,7 @@ export default class Socket {
     async deauthenticate() {
         if(this._state === SocketConnectionState.Open)
             await this.transmit(InternalServerReceivers.Deauthenticate);
-        this.setAuth(null,null);
+        this.setAuth(null,null,true);
         // noinspection ES6MissingAwait
         this._tokenStoreEngine.removeToken();
     }
