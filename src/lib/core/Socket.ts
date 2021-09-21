@@ -285,7 +285,10 @@ export default class Socket {
                 socket.onclose = this._boundOnSocketClose;
                 socket.onerror = this._boundOnSocketError;
                 socket.onopen = this._boundOnSocketOpen;
-                this._transport.send = socket.send.bind(socket);
+                this._transport.send = (data: string | Buffer | ArrayBuffer) => {
+                    try { socket.send(data); }
+                    catch (err) { this._destroySocket(1006, err.toString()); }
+                }
             }
             catch (err) {connectDeferred.reject(err)}
         }
