@@ -17,7 +17,7 @@ export interface CancelablePromise<T> extends Promise<T> {
     cancel(reason?: any): boolean
 }
 
-export function toCancelablePromise<T>(promise: Promise<T>,canceler: () => boolean): CancelablePromise<T> {
+export function toCancelablePromise<T>(promise: Promise<T>,canceler: (reason?: any) => boolean): CancelablePromise<T> {
     let promiseDone: boolean = false;
     let promiseRej: (reason: any) => void;
     const p = new Promise((res,rej) => {
@@ -33,7 +33,7 @@ export function toCancelablePromise<T>(promise: Promise<T>,canceler: () => boole
     (p as Writable<CancelablePromise<T>>).canceled = false;
     p.cancel = (reason: any = new CancellationError()) => {
         if(promiseDone || p.canceled) return p.canceled;
-        if(canceler()) {
+        if(canceler(reason)) {
             (p as Writable<CancelablePromise<T>>).canceled = true;
             promiseRej(reason);
             return true;
