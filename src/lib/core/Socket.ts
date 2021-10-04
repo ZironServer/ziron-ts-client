@@ -438,12 +438,21 @@ export default class Socket {
         this._reconnectTimeoutTicker = setTimeout(() => this._tryConnect(), timeout);
     }
 
-    async authenticate(signedAuthToken: string) {
-        await this.invoke(InternalServerProcedures.Authenticate,signedAuthToken);
-        const authToken = extractAuthToken(signedAuthToken);
-        if (authToken) this.setAuth(authToken, signedAuthToken,true);
-        // noinspection ES6MissingAwait
-        this._tokenStoreEngine.saveToken(signedAuthToken);
+    authenticate
+        <C extends boolean | undefined = undefined>
+        (signedAuthToken: string, options: {batch?: number | true | null,
+            sendTimeout?: number | null, cancelable?: C}):
+        C extends true ? CancelablePromise<void> : Promise<void>
+    {
+        const sendPromise = this.invoke(InternalServerProcedures.Authenticate,signedAuthToken,options);
+        const resPromise = sendPromise.then(() => {
+            const authToken = extractAuthToken(signedAuthToken);
+            if (authToken) this.setAuth(authToken, signedAuthToken,true);
+            // noinspection ES6MissingAwait
+            this._tokenStoreEngine.saveToken(signedAuthToken);
+        });
+        return (options.cancelable ? toCancelablePromise(resPromise,
+                reason => (sendPromise as CancelablePromise<any>).cancel(reason)) : resPromise) as any;
     }
 
     async deauthenticate() {
@@ -485,7 +494,8 @@ export default class Socket {
     }
 
     transmit<C extends boolean | undefined = undefined>
-        (receiver: string, data?: any, options: {batch?: number | true | null, sendTimeout?: number | null, cancelable?: C} & ComplexTypesOption = {})
+        (receiver: string, data?: any, options: {batch?: number | true | null,
+            sendTimeout?: number | null, cancelable?: C} & ComplexTypesOption = {})
         : C extends true ? CancelablePromise<void> : Promise<void>
     {
         if(options.sendTimeout === undefined)
@@ -510,7 +520,8 @@ export default class Socket {
     }
 
     invoke<RDT extends true | false | undefined, C extends boolean | undefined = undefined>
-    (procedure: string, data?: any, options: {batch?: number | true | null, sendTimeout?: number | null, cancelable?: C, returnDataType?: RDT, ackTimeout?: number} & ComplexTypesOption = {})
+    (procedure: string, data?: any, options: {batch?: number | true | null,
+        sendTimeout?: number | null, cancelable?: C, returnDataType?: RDT, ackTimeout?: number} & ComplexTypesOption = {})
         : C extends true ? CancelablePromise<RDT extends true ? [any,DataType] : any> : Promise<RDT extends true ? [any,DataType] : any>
     {
         if(options.sendTimeout === undefined)
