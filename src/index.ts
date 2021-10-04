@@ -11,10 +11,16 @@ import {createLocalStorageTokenStore}        from "./lib/main/tokenStore/LocalSt
 import SocketOptions                         from "./lib/core/SocketOptions";
 import {CancelablePromise, CancellationError, toCancelablePromise} from "./lib/main/utils/CancelablePromise";
 import {TimeoutError, Transport}             from "ziron-engine";
+import {
+    BatchOption,
+    BatchOptionsValue,
+    CancelableOption,
+    SendTimeoutOption,
+    SendTimeoutOptionValue
+} from "./lib/main/Options";
 
 EventEmitter.onceTimeoutErrorCreator = () => new TimeoutError('Once timeout reached.','OnceListener');
 const prepareMultiTransmit = Transport.prepareMultiTransmit;
-
 export * from 'ziron-engine';
 export {
     Socket,
@@ -27,5 +33,10 @@ export {
     prepareMultiTransmit,
     UnsubscribeReason,
     ProcedureListener,
-    ReceiverListener
+    ReceiverListener,
+    BatchOption,
+    BatchOptionsValue,
+    CancelableOption,
+    SendTimeoutOption,
+    SendTimeoutOptionValue
 }

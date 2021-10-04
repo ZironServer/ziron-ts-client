@@ -26,6 +26,7 @@ import EventEmitter from "emitix";
 import {CancelablePromise, toCancelablePromise} from "../main/utils/CancelablePromise";
 import {extractAuthToken} from "../main/utils/AuthToken";
 import * as URL from 'url';
+import {BatchOption, BatchOptionsValue, CancelableOption, SendTimeoutOption} from "../main/Options";
 
 type LocalEventEmitter = EventEmitter<{
     'error': [Error],
@@ -440,8 +441,7 @@ export default class Socket {
 
     authenticate
         <C extends boolean | undefined = undefined>
-        (signedAuthToken: string, options: {batch?: number | true | null,
-            sendTimeout?: number | null, cancelable?: C}):
+        (signedAuthToken: string, options: BatchOption & SendTimeoutOption & CancelableOption<C>):
         C extends true ? CancelablePromise<void> : Promise<void>
     {
         const sendPromise = this.invoke(InternalServerProcedures.Authenticate,signedAuthToken,options);
@@ -494,8 +494,8 @@ export default class Socket {
     }
 
     transmit<C extends boolean | undefined = undefined>
-        (receiver: string, data?: any, options: {batch?: number | true | null,
-            sendTimeout?: number | null, cancelable?: C} & ComplexTypesOption = {})
+        (receiver: string, data?: any, options: BatchOption & SendTimeoutOption &
+            CancelableOption<C> & ComplexTypesOption = {})
         : C extends true ? CancelablePromise<void> : Promise<void>
     {
         if(options.sendTimeout === undefined)
@@ -520,8 +520,8 @@ export default class Socket {
     }
 
     invoke<RDT extends true | false | undefined, C extends boolean | undefined = undefined>
-    (procedure: string, data?: any, options: {batch?: number | true | null,
-        sendTimeout?: number | null, cancelable?: C, returnDataType?: RDT, ackTimeout?: number} & ComplexTypesOption = {})
+    (procedure: string, data?: any, options: BatchOption & SendTimeoutOption & CancelableOption<C> &
+        {returnDataType?: RDT, ackTimeout?: number} & ComplexTypesOption = {})
         : C extends true ? CancelablePromise<RDT extends true ? [any,DataType] : any> : Promise<RDT extends true ? [any,DataType] : any>
     {
         if(options.sendTimeout === undefined)
@@ -547,7 +547,7 @@ export default class Socket {
         }
     }
 
-    async subscribe(channel: string, options: {batch?: number | true | null, sendTimeout?: number | null | undefined} = {}) {
+    async subscribe(channel: string, options: BatchOption & SendTimeoutOption = {}) {
         if(this._channelMap[channel] !== ChannelState.Subscribed) {
             await this.invoke(InternalServerProcedures.Subscribe,channel,options);
             this._channelMap[channel] = ChannelState.Subscribed;
@@ -556,7 +556,7 @@ export default class Socket {
         }
     }
 
-    private async _trySubscribe(channel: string, batch?: number | true | null) {
+    private async _trySubscribe(channel: string, batch?: BatchOptionsValue) {
         try {await this.subscribe(channel,{batch});}
         catch(_){}
     }
@@ -565,24 +565,24 @@ export default class Socket {
      * Unsubscribe from all current channels.
      * @param options
      */
-    unsubscribe(options?: {batch?: number | true | null, sendTimeout?: number | null | undefined})
+    unsubscribe(options?: BatchOption & SendTimeoutOption)
     /**
      * Unsubscribe from a specific channel.
      * @param channel
      * @param options
      */
-    unsubscribe(channel: string, options?: {batch?: number | true | null, sendTimeout?: number | null | undefined})
-    async unsubscribe(p1?: string | {batch?: number | true | null, sendTimeout?: number | null | undefined},
-                      p2?: {batch?: number | true | null, sendTimeout?: number | null | undefined}) {
+    unsubscribe(channel: string, options?: BatchOption & SendTimeoutOption)
+    async unsubscribe(p1?: string | BatchOption & SendTimeoutOption,
+                      p2?: BatchOption & SendTimeoutOption) {
         if(typeof p1 === 'string') return this._unsubscribe(p1,p2);
         else {
             p1 = p1 || {};
             return Promise.all(Object.keys(this._channelMap)
-                .map((channel => this._unsubscribe(channel,p1 as {batch?: number | true | null, sendTimeout?: number | null | undefined}))));
+                .map((channel => this._unsubscribe(channel,p1 as BatchOption & SendTimeoutOption))));
         }
     }
 
-    private async _unsubscribe(channel: string, options: {batch?: number | true | null, sendTimeout?: number | null | undefined} = {}){
+    private async _unsubscribe(channel: string, options: BatchOption & SendTimeoutOption = {}){
         const state = this._channelMap[channel];
         if(state != null) {
             await this.transmit(InternalServerReceivers.Unsubscribe,channel,options);
@@ -605,8 +605,8 @@ export default class Socket {
     }
 
     publish<C extends boolean | undefined = undefined, ACK extends boolean | undefined = undefined>
-        (channel: string, data?: any, options: {batch?: number | true | null, sendTimeout?: number | null | undefined, ack?: boolean,
-            cancelable?: C} & ComplexTypesOption = {}):
+        (channel: string, data?: any, options: BatchOption & SendTimeoutOption & CancelableOption<C> &
+            {ack?: boolean} & ComplexTypesOption = {}):
         C extends true ? CancelablePromise<void> : Promise<void>
     {
         if(options.ack) return this.invoke(InternalServerProcedures.Publish,[channel,data],options);
