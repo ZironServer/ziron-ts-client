@@ -296,6 +296,11 @@ export default class Socket {
         return this._connectDeferred.promise;
     }
 
+    /**
+     * @param code
+     * Codes 1000, 4500 or above 4500 will be treated as permanent disconnects.
+     * @param reason
+     */
     disconnect(code: number = 1000, reason?: string) {
         if (this._state === SocketConnectionState.Open)
             this._destroySocket(code, reason).close(code, reason)
@@ -341,15 +346,13 @@ export default class Socket {
 
         if (this.autoReconnectOptions.active)
             // Reconnect
-            // on server ping timeout (4000)
-            // or on client pong timeout (4001)
-            // or on close without status (1005)
-            // or on handshake failure (4003)
-            // or on handshake rejection (4008)
-            // or on socket hung up (1006)
+            // 4000: Server ping timeout
+            // 4001: Client pong timeout
+            // 1005: close without status
+            // 1006 (Abnormal Closure): socket hung up
             if (code === 4000 || code === 4001 || code === 1005) {
-                // If there is a ping or pong timeout or socket closes without
-                // status, don't wait before trying to reconnect.
+                // If there is a ping or pong timeout or socket
+                // closes without status, don't wait before trying to reconnect.
                 // These could happen if the client wakes up after a period of inactivity and in this case we
                 // want to re-establish the connection as soon as possible.
                 this._tryReconnect(0)
