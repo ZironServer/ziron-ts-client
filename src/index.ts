@@ -18,6 +18,7 @@ import {
     SendTimeoutOption,
     SendTimeoutOptionValue
 } from "./lib/main/Options";
+import {ConnectAbortError} from "./lib/main/Errors";
 
 EventEmitter.onceTimeoutErrorCreator = () => new TimeoutError('Once timeout reached.','OnceListener');
 const prepareMultiTransmit = Transport.prepareMultiTransmit;
@@ -38,5 +39,6 @@ export {
     BatchOptionsValue,
     CancelableOption,
     SendTimeoutOption,
-    SendTimeoutOptionValue
+    SendTimeoutOptionValue,
+    ConnectAbortError
 }
