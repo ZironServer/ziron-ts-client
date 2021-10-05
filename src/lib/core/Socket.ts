@@ -31,7 +31,7 @@ import {BatchOption, BatchOptionsValue, CancelableOption, SendTimeoutOption} fro
 type LocalEventEmitter = EventEmitter<{
     'error': [Error],
     'connect': [],
-    'connectAbort': [ConnectAbortError],
+    'connectAbort': [number,string],
     'disconnect': [number,string],
     'authTokenChange': [object | null,object | null,boolean],
 }>;
@@ -415,7 +415,7 @@ export default class Socket {
         const err = new ConnectAbortError(code,reason);
 
         this._connectDeferred.reject(err);
-        this._emit('connectAbort',err);
+        this._emit('connectAbort',code,reason);
 
         this._state = SocketConnectionState.Closed;
     }
