@@ -30,9 +30,8 @@ import {BatchOption, BatchOptionsValue, CancelableOption, SendTimeoutOption} fro
 
 type LocalEventEmitter = EventEmitter<{
     'error': [Error],
-    'warning': [Error],
-    'connectAbort': [ConnectAbortError],
     'connect': [],
+    'connectAbort': [ConnectAbortError],
     'disconnect': [number,string],
     'authTokenChange': [object | null,object | null,boolean],
 }>;
