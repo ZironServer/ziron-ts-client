@@ -20,8 +20,8 @@
   "dependencies": {
     "emitix": "^1.2.0",
     "@types/node": "^13.7.6",
-    "ws": "^8.2.2",
-    "@types/ws": "^7.4.7",
+    "ws": "^8.2.3",
+    "@types/ws": "^8.2.0",
     "zation-core-errors": "1.2.1",
     "zation-core-events": "1.0.1",
     "ziron-engine": "0.4.5",
