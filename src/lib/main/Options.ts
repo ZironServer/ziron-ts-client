@@ -30,8 +30,9 @@ export interface BatchOption {
      * When the buffer gets flushed, all packages from the buffer will be compressed sequence safe.
      * With a number, you can specify the maximum time a package should wait in the buffer.
      * Whenever the lowest time of all packages in the buffer is reached, the buffer gets flushed.
-     * A null value will push the package in the buffer but without any time limit.
+     * A true value will push the package in the buffer but without any time limit.
      * So the flushing depends on other packages or on manually flushing the buffer.
+     * Undefined, null, or 0 will not batch the package when the client is connected and sends it directly.
      */
     batch?: BatchOptionsValue
 }
