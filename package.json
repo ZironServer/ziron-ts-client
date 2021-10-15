@@ -22,8 +22,8 @@
     "@types/node": "^13.7.6",
     "ws": "^8.2.3",
     "@types/ws": "^8.2.0",
-    "zation-core-errors": "1.2.1",
-    "zation-core-events": "1.0.1",
+    "ziron-errors": "1.2.4",
+    "ziron-events": "1.0.3",
     "ziron-engine": "0.4.5",
     "buffer": "^6.0.3",
     "url": "^0.11.0"

@@ -7,7 +7,7 @@ Copyright(c) Luca Scaringella
 import SocketOptions, {AutoReconnectOptions, DEFAULT_HOSTNAME, DEFAULT_SECURE, getDefaultPort} from "./SocketOptions";
 import TokenStoreEngine from "../main/tokenStore/TokenStoreEngine";
 import {createWebSocket, WebSocket} from './WebSocket';
-import {InternalServerProcedures, InternalServerReceivers, InternalServerTransmits} from "zation-core-events";
+import {InternalServerProcedures, InternalServerReceivers, InternalServerTransmits} from "ziron-events";
 import {
     BadConnectionType,
     DataType,
@@ -20,7 +20,7 @@ import {
 import {Writable} from "../main/utils/Types";
 import {EMPTY_HANDLER} from "../main/utils/Constants";
 import Deferred from "../main/utils/Deferred";
-import {socketProtocolErrorStatuses} from "zation-core-errors";
+import {socketProtocolErrorStatuses} from "ziron-errors";
 import {ConnectAbortError} from "../main/Errors";
 import EventEmitter from "emitix";
 import {CancelablePromise, toCancelablePromise} from "../main/utils/CancelablePromise";
