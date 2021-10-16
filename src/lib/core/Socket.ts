@@ -513,7 +513,7 @@ export default class Socket {
             if(options.sendTimeout != null) {
                 const timeout = setTimeout(() => {
                     cp.cancel(new TimeoutError('Transmit send timeout reached.','SendTimeout'))
-                });
+                },options.sendTimeout);
                 sendP.finally(() => clearTimeout(timeout))
             }
             return cp as any;
@@ -538,7 +538,7 @@ export default class Socket {
             const cp = toCancelablePromise(preparedPackage.promise, () => this._transport.tryCancelPackage(preparedPackage));
             const timeout = setTimeout(() => {
                 cp.cancel(new TimeoutError('Invoke send timeout reached.','SendTimeout'))
-            });
+            },options.sendTimeout);
             sendP.finally(() => clearTimeout(timeout))
             return cp as any;
         }
