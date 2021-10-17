@@ -11,7 +11,7 @@ export interface SendTimeoutOption {
      * Specifies the send timeout.
      * The send timeout specifies the time limit in that the package should be sent.
      * When the package is not sent in time, it will be rejected with a TimeoutError.
-     * The sending of a package could be delayed whenever the socket is not connected.
+     * The sending of a package could be delayed whenever the source (socket) is not connected.
      * In this case, the package is pushed into a buffer.
      * When the connection is established again, the buffer is flushed.
      * If the send timeout is null, the package will never be rejected and
