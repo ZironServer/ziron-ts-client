@@ -412,7 +412,7 @@ export default class Socket {
 
     private _onConnectAbort(code: number, reason: string) {
         this._transport.emitBadConnection(BadConnectionType.ConnectAbort);
-        const err = new ConnectAbortError(code,reason);
+        const err = new ConnectAbortError(this._url,code,reason);
 
         this._connectDeferred.reject(err);
         this._emit('connectAbort',code,reason);

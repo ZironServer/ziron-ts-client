@@ -5,11 +5,7 @@ Copyright(c) Ing. Luca Gian Scaringella
  */
 
 export class ConnectAbortError extends Error {
-    public readonly code: number;
-    public readonly reason: string;
-    constructor(code: number, reason: string) {
-        super('Connect abort -> ' + reason);
-        this.code = code;
-        this.reason = reason;
+    constructor(readonly url: string,readonly code: number, readonly reason: string) {
+        super(`Connect abort to URL: ${url} with reason: ${reason} and code: ${code}.`);
     }
 }
