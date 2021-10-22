@@ -21,9 +21,9 @@
     "@types/node": "^13.7.6",
     "ws": "^8.2.3",
     "@types/ws": "^8.2.0",
-    "ziron-errors": "1.2.4",
-    "ziron-events": "1.0.3",
-    "ziron-engine": "0.4.5",
+    "ziron-errors": "1.2.5",
+    "ziron-events": "1.0.4",
+    "ziron-engine": "0.5.0",
     "buffer": "^6.0.3",
     "url": "^0.11.0"
   },
