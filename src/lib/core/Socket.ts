@@ -27,6 +27,7 @@ import {CancelablePromise, toCancelablePromise} from "../main/utils/CancelablePr
 import {extractAuthToken} from "../main/utils/AuthToken";
 import * as URL from 'url';
 import {BatchOption, BatchOptionsValue, CancelableOption, SendTimeoutOption} from "../main/Options";
+import {preprocessPath} from "../main/utils/URL";
 
 type LocalEventEmitter = EventEmitter<{
     'error': [Error],
@@ -198,7 +199,7 @@ export default class Socket {
             tokenStore: null
         };
         Object.assign(this.options,options);
-        if(!this.options.path.startsWith('/')) this.options.path = ('/' + this.options.path);
+        this.options.path = preprocessPath(this.options.path);
 
         Object.assign(this.autoReconnectOptions,options.autoReconnect);
 

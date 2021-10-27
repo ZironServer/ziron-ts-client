@@ -58,7 +58,7 @@ export default interface SocketOptions {
     secure?: boolean,
     /**
      * @description
-     * The URL path where the ziron server processes requests.
+     * The URL path where the server processes ws handshakes.
      * @default '/'.
      */
     path?: string,
