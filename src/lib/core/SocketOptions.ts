@@ -59,6 +59,7 @@ export default interface SocketOptions {
     /**
      * @description
      * The URL path where the server processes ws handshakes.
+     * Notice multiple slashes at the end are not supported and will be removed.
      * @default '/'.
      */
     path?: string,
