@@ -15,7 +15,7 @@ import {
     ComplexTypesOption,
     TimeoutError,
     TransmitListener,
-    Transport
+    Transport, TransportOptions
 } from "ziron-engine";
 import {Writable} from "../main/utils/Types";
 import {EMPTY_HANDLER} from "../main/utils/Constants";
@@ -69,6 +69,7 @@ type Procedures = {[key: string]: ProcedureListener | undefined}
 export default class Socket {
 
     private readonly options: Required<SocketOptions>;
+    private readonly transportOptions: TransportOptions;
 
     private readonly autoReconnectOptions: Required<AutoReconnectOptions> = {
         active: true,
@@ -214,22 +215,23 @@ export default class Socket {
 
         this._tokenStoreEngine = new TokenStoreEngine(options.tokenStore);
 
+        this.transportOptions = Transport.buildOptions(this.options);
+
         this._transport = new Transport({
             onTransmit: this._onTransmit.bind(this),
             onInvoke: this._onInvoke.bind(this),
             onListenerError: (err) => this._emit('error',err),
-            onInvalidMessage: () => this._destroySocket(4400,'Bad message')
-        },false);
+            onInvalidMessage: () => this._destroySocket(4400,'Bad message'),
             hasLowSendBackpressure: this.hasLowSendBackpressure.bind(this)
+        },this.transportOptions,false);
         this._transport.onPing = () => {
             this._renewPingTimeout();
             this._transport.sendPong();
         };
-        this._transport.ackTimeout = this.options.ackTimeout;
 
-        this.flushBuffer = this._transport.flushBuffer.bind(this._transport);
-        this.getBufferSize = this._transport.getBufferSize.bind(this._transport);
-        this.sendPreparedPackage = this._transport.sendPreparedPackage.bind(this._transport);
+        this.flushBuffer = this._transport.buffer.flushBuffer.bind(this._transport);
+        this.getBufferSize = this._transport.buffer.getBufferSize.bind(this._transport);
+        this.sendPackage = this._transport.sendPackage.bind(this._transport);
 
         this._onMessageHandler = event => this._transport.emitMessage(event.data);
     }
@@ -255,9 +257,9 @@ export default class Socket {
         return options;
     }
 
-    public readonly flushBuffer: Transport['flushBuffer'];
-    public readonly getBufferSize: Transport['getBufferSize'];
-    public readonly sendPreparedPackage: Transport['sendPreparedPackage'];
+    public readonly flushBuffer: Transport['buffer']['flushBuffer'];
+    public readonly getBufferSize: Transport['buffer']['getBufferSize'];
+    public readonly sendPackage: Transport['sendPackage'];
 
     private _onInvoke(procedure: string,data: any,end: (data?: any) => void,reject: (err?: any) => void, type: DataType) {
         if(this.procedures[procedure]) return this.procedures[procedure]!(data,end,reject,type);
@@ -401,7 +403,7 @@ export default class Socket {
             (this.receivers as Writable<Receivers>)[InternalServerTransmits.ConnectionReady] = EMPTY_HANDLER;
             clearTimeout(this._connectTimeoutTicker);
             this._renewPingTimeout();
-            this._transport.emitOpen();
+            this._transport.emitConnection();
             this._connectDeferred.resolve(readyData);
             this._emit('connect');
             this._processPendingSubscriptions();
@@ -527,7 +529,7 @@ export default class Socket {
         if(this._state !== SocketConnectionState.Open) this._tryConnect();
 
         if(options.cancelable || options.sendTimeout != null) {
-            const sendP = this._transport.sendPreparedPackageWithPromise(preparedPackage,options.batch);
+            const sendP = this._transport.sendPackageWithPromise(preparedPackage,options.batch);
             const cp = toCancelablePromise(sendP, () => this._transport.tryCancelPackage(preparedPackage));
             if(options.sendTimeout != null) {
                 const timeout = setTimeout(() => {
@@ -537,7 +539,7 @@ export default class Socket {
             }
             return cp as any;
         }
-        else return this._transport.sendPreparedPackageWithPromise(preparedPackage,options.batch) as any;
+        else return this._transport.sendPackageWithPromise(preparedPackage,options.batch) as any;
     }
 
     invoke<RDT extends true | false | undefined, C extends boolean | undefined = undefined>
@@ -553,7 +555,7 @@ export default class Socket {
         if(this._state !== SocketConnectionState.Open) this._tryConnect();
 
         if(options.sendTimeout != null) {
-            const sendP = this._transport.sendPreparedPackageWithPromise(preparedPackage,options.batch);
+            const sendP = this._transport.sendPackageWithPromise(preparedPackage,options.batch);
             const cp = toCancelablePromise(preparedPackage.promise, () => this._transport.tryCancelPackage(preparedPackage));
             const timeout = setTimeout(() => {
                 cp.cancel(new TimeoutError('Invoke send timeout reached.','SendTimeout'))
@@ -562,7 +564,7 @@ export default class Socket {
             return cp as any;
         }
         else {
-            this._transport.sendPreparedPackage(preparedPackage,options.batch);
+            this._transport.sendPackage(preparedPackage,options.batch);
             return options.cancelable ? toCancelablePromise(preparedPackage.promise, () => this._transport.tryCancelPackage(preparedPackage)) as any :
                 preparedPackage.promise as any;
         }
