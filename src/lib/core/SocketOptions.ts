@@ -7,30 +7,36 @@ Copyright(c) Ing. Luca Gian Scaringella
 import {ClientOptions as WSClientOptions} from "ws";
 import TokenStore from "../main/tokenStore/TokenStore";
 import {WINDOW_DEFINED} from "../main/utils/Constants";
+import {TransportOptions} from "ziron-engine";
 
 export interface AutoReconnectOptions {
     /**
+     * @description
      * Defines if the client should try to reconnect to the server when the connection is lost.
      * Notice that the client will automatically resubscribe all previous channels.
      * @default true
      */
     active?: boolean,
     /**
+     * @description
      * Initial delay in milliseconds.
      * @default 5000
      */
     initialDelay?: number,
     /**
+     * @description
      * Randomness in milliseconds.
      * @default 5000
      */
     randomness?: number,
     /**
+     * @description
      * Miltiplier (decimal)
      * @default 1.5
      */
     multiplier?: number,
     /**
+     * @description
      * Max delay in milliseconds.
      * @default 60000
      */
@@ -89,10 +95,13 @@ export default interface SocketOptions {
     connectTimeout?: number,
     /**
      * @description
-     * Specifies the default ack timeout.
+     * Defines the default timeout in milliseconds for
+     * receiving the response of an invoke.
+     * Notice that an individual ack timeout can be specified for
+     * an invoke that overrides this option value.
      * @default 7000
      */
-    ackTimeout?: number,
+    ackTimeout?: number;
     /**
      * @description
      * Specifies the default transmit send timeout.
@@ -116,6 +125,7 @@ export default interface SocketOptions {
      */
     invokeSendTimeout?: null | number;
     /**
+     * @description
      * This attachment will be sent to the server when
      * the client is creating his connection and
      * can be accessed from the server-side.
@@ -129,6 +139,7 @@ export default interface SocketOptions {
      */
     wsOptions?: WSClientOptions,
     /**
+     * @description
      * Specifies the token store that is used to save/load and remove the token.
      * Internal the client will also store the token in a variable
      * independent of what store is used.
@@ -142,6 +153,43 @@ export default interface SocketOptions {
      * @default undefined
      */
     tokenStore?: TokenStore | null
+    /**
+     * @description
+     * The maximum package buffer size in bytes.
+     * Whenever a package should be sent in an unconnected state or
+     * with a batch time, it is pushed to the buffer.
+     * When a new package would exceed the buffer size,
+     * the buffer will be flushed automatically.
+     * When it is not possible to flush the buffer duo to a not open state,
+     * an InsufficientBufferSizeError will be thrown.
+     * Notice that the UTF-8 byte size of string packages is only estimated.
+     * @default Number.POSITIVE_INFINITY
+     */
+    maxPackageBufferSize?: number;
+    /**
+     * @description
+     * Advanced option.
+     * Defines the timeout in milliseconds for receiving
+     * the referenced binary content packet of a text packet.
+     * @default 10000
+     */
+    binaryContentPacketTimeout?: number;
+    /**
+     * @description
+     * Advanced option.
+     * This option defines how many
+     * streams are allowed in a package.
+     * @default 20
+     */
+    streamsPerPackageLimit?: number;
+    /**
+     * @description
+     * Advanced option.
+     * This option species if chunks
+     * of streams can contain streams.
+     * @default false
+     */
+    chunksCanContainStreams?: boolean;
 }
 
 export const DEFAULT_HOSTNAME = WINDOW_DEFINED && window.location && window.location.hostname || 'localhost';
