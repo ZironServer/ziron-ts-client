@@ -188,16 +188,20 @@ export default class Socket {
             port: getDefaultPort(options.secure ?? DEFAULT_SECURE),
             secure: DEFAULT_SECURE,
             path: '/',
-            connectTimeout: 20000,
             ackTimeout: 7000,
+            connectTimeout: 20000,
             invokeSendTimeout: 3000,
             transmitSendTimeout: null,
             autoReconnect: {},
             autoResubscribe: true,
             handshakeAttachment: undefined,
             wsOptions: {},
-            tokenStore: null
+            tokenStore: null,
             lowSendBackpressureMark: 209715,
+            maxPackageBufferSize: Number.POSITIVE_INFINITY,
+            binaryContentPacketTimeout: 10000,
+            streamsPerPackageLimit: 20,
+            chunksCanContainStreams: false
         };
         Object.assign(this.options,options);
         this.options.path = preprocessPath(this.options.path);
