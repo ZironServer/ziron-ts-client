@@ -155,6 +155,16 @@ export default interface SocketOptions {
     tokenStore?: TokenStore | null
     /**
      * @description
+     * Advanced option.
+     * Defines a byte mark to evaluate if the socket
+     * write-buffer backpressure is low.
+     * Write streams will pause when the backpressure
+     * is not low and are waiting for low pressure.
+     * @default 209715 Bytes
+     */
+    lowSendBackpressureMark?: number
+    /**
+     * @description
      * The maximum package buffer size in bytes.
      * Whenever a package should be sent in an unconnected state or
      * with a batch time, it is pushed to the buffer.

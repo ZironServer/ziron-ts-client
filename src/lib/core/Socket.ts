@@ -197,6 +197,7 @@ export default class Socket {
             handshakeAttachment: undefined,
             wsOptions: {},
             tokenStore: null
+            lowSendBackpressureMark: 209715,
         };
         Object.assign(this.options,options);
         this.options.path = preprocessPath(this.options.path);
@@ -215,6 +216,7 @@ export default class Socket {
             onListenerError: (err) => this._emit('error',err),
             onInvalidMessage: () => this._destroySocket(4400,'Bad message')
         },false);
+            hasLowSendBackpressure: this.hasLowSendBackpressure.bind(this)
         this._transport.onPing = () => {
             this._renewPingTimeout();
             this._transport.sendPong();
@@ -286,6 +288,7 @@ export default class Socket {
                 socket.onclose = this._boundOnSocketClose;
                 socket.onerror = this._boundOnSocketError;
                 socket.onopen = this._boundOnSocketOpen;
+                socket.ondrain = this._boundOnSocketDrain;
                 this._transport.send = (data: string | Buffer | ArrayBuffer) => {
                     try { socket.send(data); }
                     catch (err) { this._destroySocket(1006, err.toString()); }
@@ -323,6 +326,7 @@ export default class Socket {
         this._socket.onclose = EMPTY_HANDLER;
         this._socket.onmessage = EMPTY_HANDLER;
         this._socket.onerror = EMPTY_HANDLER;
+        this._socket.ondrain = EMPTY_HANDLER;
 
         clearTimeout(this._connectTimeoutTicker);
         clearTimeout(this._pingTimeoutTicker);
@@ -409,6 +413,16 @@ export default class Socket {
     private _onSocketError() {
         if (this._state === SocketConnectionState.Connecting)
             this._destroySocket(1006);
+    }
+
+    private _boundOnSocketDrain: Socket['_onSocketDrain'] = this._onSocketDrain.bind(this);
+    private _onSocketDrain(backpressure: number) {
+        if(backpressure <= this.options.lowSendBackpressureMark)
+            this._transport.emitSendBackpressureDrain();
+    }
+
+    hasLowSendBackpressure(): boolean {
+        return this._socket && this._socket.bufferedAmount <= this.options.lowSendBackpressureMark;
     }
 
     private _onConnectAbort(code: number, reason: string) {
