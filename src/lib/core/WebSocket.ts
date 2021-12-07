@@ -13,17 +13,53 @@ export interface WebSocket {
     onclose: (event: any) => void;
     onmessage: (event: any) => void;
     onerror: (event: any) => void;
+    /**
+     * @description
+     * It gets called when some backpressure
+     * has drained from the write buffer.
+     * @param backpressure
+     */
+    ondrain?: (backpressure: number) => void;
     binaryType: 'arraybuffer' | 'blob';
+    bufferedAmount: number;
+}
+
+function addOnDrainEventToWebSocket<T extends typeof window.WebSocket['prototype']>(socket: T): T {
+    let listener, ticker;
+    socket.addEventListener("close",() => clearInterval(ticker));
+    Object.defineProperty(socket,"ondrain",{
+        set(v?: (backpressure: number) => void) {
+            const registered = !!listener;
+            listener = v;
+            if(!registered && listener) {
+                if(socket.readyState < 2) {
+                    let prevBackpressure = socket.bufferedAmount;
+                    ticker = setInterval(() => {
+                        const bufferedAmount = socket.bufferedAmount;
+                        if(bufferedAmount < prevBackpressure && socket.readyState === 1)
+                            listener(bufferedAmount);
+                        prevBackpressure = bufferedAmount;
+                    },800);
+                }
+            }
+            else if(registered && !listener) clearInterval(ticker);
+        },
+        get(): any {return listener;}
+    });
+    return socket;
 }
 
 export let createWebSocket: (url: string,protocol: string,options?: ClientOptions) => WebSocket;
 if (typeof window === 'object' && window.WebSocket) {
-    createWebSocket = (url,protocol) => new (window as any).WebSocket(url,protocol);
+    createWebSocket = (url,protocol) =>
+        addOnDrainEventToWebSocket(new (window as any).WebSocket(url,protocol));
 }
 else if(typeof window === 'object' && (window as any).MozWebSocket) {
-    createWebSocket = (url,protocol) => new (window as any).MozWebSocket(url,protocol);
+    createWebSocket = (url,protocol) =>
+        addOnDrainEventToWebSocket(new (window as any).MozWebSocket(url,protocol));
 }
 else {
     const WsWebSocket = require('ws');
-    createWebSocket = (url,protocol, options) => new WsWebSocket(url, protocol, options);
+    createWebSocket = (url,protocol, options) =>
+        addOnDrainEventToWebSocket(new WsWebSocket(url, protocol, options));
 }
