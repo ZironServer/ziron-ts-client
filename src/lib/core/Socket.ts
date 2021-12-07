@@ -88,6 +88,13 @@ export default class Socket {
     private _channelMap: Record<string,ChannelState> = {};
     private readonly _chEmitter: ChEventEmitter = new EventEmitter();
 
+    /**
+     * @description
+     * The current max allowed payload size of the server.
+     * It will be updated on a connection
+     * with the server-side information
+     */
+    readonly currentMaxPayloadSize: number = 4194304;
     private _currentPingTimeout: number = 200000;
     private _pingTimeoutTicker: NodeJS.Timeout;
     private _connectTimeoutTicker: NodeJS.Timeout;
@@ -234,6 +241,14 @@ export default class Socket {
         this.sendPackage = this._transport.sendPackage.bind(this._transport);
 
         this._onMessageHandler = event => this._transport.emitMessage(event.data);
+    }
+
+    private _updateTransportOptions(maxPayloadSize: number) {
+        if(maxPayloadSize <= 0) return;
+        this.transportOptions.limitBatchBinarySize =
+            Math.max(Math.ceil(0.7 * maxPayloadSize),200);
+        this.transportOptions.limitBatchStringLength =
+            Math.max(Math.ceil(0.7 * (maxPayloadSize / 4)),2000);
     }
 
     /**
@@ -390,8 +405,12 @@ export default class Socket {
 
     private _boundOnSocketOpen: Socket['_onSocketOpen'] = this._onSocketOpen.bind(this);
     private _onSocketOpen() {
-        (this.receivers as Writable<Receivers>)[InternalServerTransmits.ConnectionReady] = ([pingInterval,authTokenState,readyData]) => {
+        (this.receivers as Writable<Receivers>)[InternalServerTransmits.ConnectionReady] = (
+            [pingInterval,maxPayloadSize,authTokenState,readyData]) => {
+
             this._currentPingTimeout = pingInterval + 1000;
+            (this as Writable<Socket>).currentMaxPayloadSize = maxPayloadSize;
+            this._updateTransportOptions(maxPayloadSize);
 
             if(typeof authTokenState === 'number') {
                 this.setAuth(null,null,false)
