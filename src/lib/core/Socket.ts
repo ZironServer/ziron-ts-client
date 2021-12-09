@@ -446,6 +446,10 @@ export default class Socket {
             this._transport.emitSendBackpressureDrain();
     }
 
+    get bufferedSendAmount(): number {
+        return this._socket.bufferedAmount;
+    }
+
     hasLowSendBackpressure(): boolean {
         return this._socket && this._socket.bufferedAmount <= this.options.lowSendBackpressureMark;
     }
