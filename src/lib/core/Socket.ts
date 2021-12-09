@@ -408,7 +408,7 @@ export default class Socket {
         (this.receivers as Writable<Receivers>)[InternalServerTransmits.ConnectionReady] = (
             [pingInterval,maxPayloadSize,authTokenState,readyData]) => {
 
-            this._currentPingTimeout = pingInterval + 1000;
+            this._currentPingTimeout = pingInterval + 2000;
             (this as Writable<Socket>).currentMaxPayloadSize = maxPayloadSize;
             this._updateTransportOptions(maxPayloadSize);
 
