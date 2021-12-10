@@ -15,7 +15,7 @@ import {
     ComplexTypesOption,
     TimeoutError,
     TransmitListener,
-    Transport, TransportOptions
+    Transport, TransportOptions, BatchOption, BatchOptionsValue, ResponseTimeoutOption, ReturnDataTypeOption
 } from "ziron-engine";
 import {Writable} from "../main/utils/Types";
 import {EMPTY_HANDLER} from "../main/utils/Constants";
@@ -26,7 +26,7 @@ import EventEmitter from "emitix";
 import {CancelablePromise, toCancelablePromise} from "../main/utils/CancelablePromise";
 import {extractAuthToken} from "../main/utils/AuthToken";
 import * as URL from 'url';
-import {BatchOption, BatchOptionsValue, CancelableOption, SendTimeoutOption} from "../main/Options";
+import {CancelableOption, SendTimeoutOption} from "../main/Options";
 import {preprocessPath} from "../main/utils/URL";
 
 type LocalEventEmitter = EventEmitter<{
@@ -196,7 +196,7 @@ export default class Socket {
             port: getDefaultPort(options.secure ?? DEFAULT_SECURE),
             secure: DEFAULT_SECURE,
             path: '/',
-            ackTimeout: 7000,
+            responseTimeout: 7000,
             connectTimeout: 20000,
             invokeSendTimeout: 3000,
             transmitSendTimeout: null,
@@ -567,7 +567,7 @@ export default class Socket {
 
     invoke<RDT extends true | false | undefined, C extends boolean | undefined = undefined>
     (procedure: string, data?: any, options: BatchOption & SendTimeoutOption & CancelableOption<C> &
-        {returnDataType?: RDT, ackTimeout?: number} & ComplexTypesOption = {})
+        ResponseTimeoutOption & ComplexTypesOption & ReturnDataTypeOption<RDT> = {})
         : C extends true ? CancelablePromise<RDT extends true ? [any,DataType] : any> : Promise<RDT extends true ? [any,DataType] : any>
     {
         if(options.sendTimeout === undefined)

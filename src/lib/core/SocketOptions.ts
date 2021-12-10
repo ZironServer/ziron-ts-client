@@ -97,11 +97,11 @@ export default interface SocketOptions {
      * @description
      * Defines the default timeout in milliseconds for
      * receiving the response of an invoke.
-     * Notice that an individual ack timeout can be specified for
+     * Notice that an individual response timeout can be specified for
      * an invoke that overrides this option value.
      * @default 7000
      */
-    ackTimeout?: number;
+    responseTimeout?: number;
     /**
      * @description
      * Specifies the default transmit send timeout.

@@ -12,8 +12,6 @@ import SocketOptions                         from "./lib/core/SocketOptions";
 import {CancelablePromise, CancellationError, toCancelablePromise} from "./lib/main/utils/CancelablePromise";
 import {TimeoutError, Transport}             from "ziron-engine";
 import {
-    BatchOption,
-    BatchOptionsValue,
     CancelableOption,
     SendTimeoutOption,
     SendTimeoutOptionValue
@@ -35,8 +33,6 @@ export {
     UnsubscribeReason,
     ProcedureListener,
     ReceiverListener,
-    BatchOption,
-    BatchOptionsValue,
     CancelableOption,
     SendTimeoutOption,
     SendTimeoutOptionValue,
