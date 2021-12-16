@@ -97,8 +97,8 @@ export default interface SocketOptions {
      * @description
      * Defines the default timeout in milliseconds for
      * receiving the response of an invoke.
-     * The timeout only starts when all data of the invoke is transmitted,
-     * including all chunks of streams.
+     * The timeout only starts when the data of the invoke is completely transmitted,
+     * and all containing streams are closed.
      * Notice that an individual response timeout can be specified for
      * an invoke that overrides this option value.
      * @default 7000
