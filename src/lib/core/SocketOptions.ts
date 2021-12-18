@@ -7,7 +7,6 @@ Copyright(c) Ing. Luca Gian Scaringella
 import {ClientOptions as WSClientOptions} from "ws";
 import TokenStore from "../main/tokenStore/TokenStore";
 import {WINDOW_DEFINED} from "../main/utils/Constants";
-import {TransportOptions} from "ziron-engine";
 
 export interface AutoReconnectOptions {
     /**
