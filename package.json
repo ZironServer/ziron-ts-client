@@ -20,7 +20,7 @@
   "dependencies": {
     "emitix": "^2.0.0",
     "@types/node": "^13.7.6",
-    "ws": "^8.3.0",
+    "ws": "^8.4.0",
     "@types/ws": "^8.2.2",
     "ziron-errors": "1.4.0",
     "ziron-events": "1.4.0",
