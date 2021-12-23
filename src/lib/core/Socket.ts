@@ -236,8 +236,8 @@ export default class Socket {
             this._transport.sendPong();
         };
 
-        this.flushBuffer = this._transport.buffer.flushBuffer.bind(this._transport);
-        this.getBufferSize = this._transport.buffer.getBufferSize.bind(this._transport);
+        this.flushBuffer = this._transport.buffer.flushBuffer.bind(this._transport.buffer);
+        this.getBufferSize = this._transport.buffer.getBufferSize.bind(this._transport.buffer);
         this.sendPackage = this._transport.sendPackage.bind(this._transport);
 
         this._onMessageHandler = event => this._transport.emitMessage(event.data);
