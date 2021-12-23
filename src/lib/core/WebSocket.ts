@@ -49,17 +49,16 @@ function addOnDrainEventToWebSocket<T extends typeof window.WebSocket['prototype
     return socket;
 }
 
+const BrowserWebSocket: typeof window.WebSocket | undefined =
+    (typeof window === 'object') && window.WebSocket || (window as any).MozWebSocket;
+
 export let createWebSocket: (url: string,protocol: string,options?: ClientOptions) => WebSocket;
-if (typeof window === 'object' && window.WebSocket) {
+if (BrowserWebSocket != null) {
     createWebSocket = (url,protocol) =>
-        addOnDrainEventToWebSocket(new (window as any).WebSocket(url,protocol));
-}
-else if(typeof window === 'object' && (window as any).MozWebSocket) {
-    createWebSocket = (url,protocol) =>
-        addOnDrainEventToWebSocket(new (window as any).MozWebSocket(url,protocol));
+        addOnDrainEventToWebSocket(new BrowserWebSocket(url,protocol)) as WebSocket;
 }
 else {
     const WsWebSocket = require('ws');
-    createWebSocket = (url,protocol, options) =>
-        addOnDrainEventToWebSocket(new WsWebSocket(url, protocol, options));
+    createWebSocket = (url,protocol,options) =>
+        addOnDrainEventToWebSocket(new WsWebSocket(url,protocol,options)) as WebSocket;
 }
