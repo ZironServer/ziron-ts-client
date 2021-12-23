@@ -5,10 +5,13 @@ Copyright(c) Ing. Luca Gian Scaringella
  */
 
 declare var WorkerGlobalScope: any;
-const globalScope = typeof WorkerGlobalScope !== 'undefined' ? self :
-    typeof window !== 'undefined' && window || (function(this: any) {return this;})();
-const GlobalWebSocket = (typeof globalScope === 'object' && globalScope) &&
-    window.WebSocket || (window as any).MozWebSocket;
+let globalScope: any;
+if(typeof WorkerGlobalScope !== 'undefined') globalScope = self;
+else if(typeof window !== 'undefined' && window) globalScope = window;
+else (function(this: any) {return this;})();
+
+const GlobalWebSocket = (typeof globalScope === 'object' && globalScope) ?
+    (window.WebSocket || (window as any).MozWebSocket) : null;
 if(GlobalWebSocket == null) module.exports = null;
 else {
     /**
@@ -20,7 +23,7 @@ else {
      * @param opts
      */
     function Ws(uri: string, protocols?: string | string[], opts?: any) {
-        return protocols != null ? new GlobalWebSocket(uri,protocols) : new GlobalWebSocket(uri);
+        return protocols != null ? new GlobalWebSocket!(uri,protocols) : new GlobalWebSocket!(uri);
     }
     Ws.prototype = GlobalWebSocket.prototype;
     module.exports = Ws;
