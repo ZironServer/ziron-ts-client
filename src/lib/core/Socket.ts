@@ -536,7 +536,7 @@ export default class Socket {
 
     private async _createHandshakeProtocolHeader() {
         const loadedToken = await this._tokenStoreEngine.loadToken();
-        return loadedToken ? `${loadedToken}@ziron` : "ziron";
+        return encodeURIComponent(loadedToken ? `${loadedToken}@ziron` : "ziron");
     }
 
     transmit<C extends boolean | undefined = undefined>
