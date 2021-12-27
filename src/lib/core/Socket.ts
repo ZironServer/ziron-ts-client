@@ -103,6 +103,7 @@ export default class Socket {
 
     private readonly _tokenStoreEngine: TokenStoreEngine;
 
+    private _handshakeSignedAuthToken: string | null;
     public readonly signedAuthToken: string | null = null;
     public readonly authToken: any | null = null;
     public readonly authenticated: boolean = false;
@@ -296,12 +297,14 @@ export default class Socket {
             this._connectDeferred = connectDeferred;
 
             try {
-                const protocolHeader = await this._createHandshakeProtocolHeader();
+                const loadedToken = this.signedAuthToken ?? await this._tokenStoreEngine.loadToken();
+                this._handshakeSignedAuthToken = loadedToken;
 
                 this._connectTimeoutTicker = setTimeout(this._boundConnectTimeoutReached,
                     timeout || this.options.connectTimeout);
 
-                const socket = createWebSocket(this._createHandshakeUrl(),protocolHeader,this.options.wsOptions);
+                const socket = createWebSocket(this._createHandshakeUrl(),
+                    Socket._createHandshakeProtocolHeader(loadedToken),this.options.wsOptions);
                 this._socket = socket;
 
                 socket.binaryType = 'arraybuffer';
@@ -412,8 +415,16 @@ export default class Socket {
             (this as Writable<Socket>).currentMaxPayloadSize = maxPayloadSize;
             this._updateTransportOptions(maxPayloadSize);
 
-            if(typeof authTokenState === 'number') {
-                this.setAuth(null,null,false)
+            if(authTokenState === 0) {
+                //accepted token
+                const signedToken = this._handshakeSignedAuthToken;
+                if(signedToken !== this.signedAuthToken) {
+                    const authToken = signedToken != null ? extractAuthToken(signedToken) : null;
+                    this.setAuth(authToken, signedToken, false);
+                }
+            }
+            else if(authTokenState > 0) {
+                this.setAuth(null,null,false);
                 if(authTokenState === 2) this._tokenStoreEngine.removeToken();
             }
 
@@ -534,11 +545,10 @@ export default class Socket {
             this._url;
     }
 
-    private async _createHandshakeProtocolHeader() {
-        const loadedToken = await this._tokenStoreEngine.loadToken();
+    private static _createHandshakeProtocolHeader(authToken?: string | null) {
         //Putting the jwt in the protocol header as the second arg
         // to not overload the URL query params length.
-        return loadedToken ? ['ziron',encodeURIComponent(loadedToken)] : 'ziron';
+        return authToken ? ['ziron',encodeURIComponent(authToken)] : 'ziron';
     }
 
     transmit<C extends boolean | undefined = undefined>
