@@ -423,7 +423,7 @@ export default class Socket {
                     this.setAuth(authToken, signedToken, false);
                 }
             }
-            else if(authTokenState > 0) {
+            else if(authTokenState > 0 || authTokenState === -1) {
                 this.setAuth(null,null,false);
                 if(authTokenState === 2) this._tokenStoreEngine.removeToken();
             }
