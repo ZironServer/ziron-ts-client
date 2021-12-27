@@ -53,7 +53,7 @@ let BrowserWebSocket: typeof window.WebSocket | undefined;
 if(typeof window === 'object' && window)
     BrowserWebSocket = window.WebSocket || (window as any).MozWebSocket;
 
-export let createWebSocket: (url: string,protocol: string,options?: ClientOptions) => WebSocket;
+export let createWebSocket: (url: string,protocol: string | string[],options?: ClientOptions) => WebSocket;
 if (BrowserWebSocket != null) {
     createWebSocket = (url,protocol) =>
         addOnDrainEventToWebSocket(new BrowserWebSocket!(url,protocol)) as WebSocket;

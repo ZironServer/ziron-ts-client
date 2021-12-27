@@ -536,7 +536,9 @@ export default class Socket {
 
     private async _createHandshakeProtocolHeader() {
         const loadedToken = await this._tokenStoreEngine.loadToken();
-        return encodeURIComponent(loadedToken ? `${loadedToken}@ziron` : "ziron");
+        //Putting the jwt in the protocol header as the second arg
+        // to not overload the URL query params length.
+        return loadedToken ? ['ziron',encodeURIComponent(loadedToken)] : 'ziron';
     }
 
     transmit<C extends boolean | undefined = undefined>
