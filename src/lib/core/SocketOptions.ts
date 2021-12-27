@@ -141,16 +141,14 @@ export default interface SocketOptions {
     wsOptions?: WSClientOptions,
     /**
      * @description
-     * Specifies the token store that is used to save/load and remove the token.
-     * Internal the client will also store the token in a variable
-     * independent of what store is used.
-     * The stored token will be loaded whenever the client wants to connect again.
-     * The load tries to load the token with the store if no store is provided
-     * or the load fails it will load the token from the in-memory variable.
-     * The client already provides a local storage token store that
-     * uses the local storage of a browser.
+     * Specifies the token store that is used to store the signed JSON web token.
+     * The client loads the store's token when no signed token
+     * is available in the in-memory variable.
+     * You can implement your own store.
+     * However, the client already provides an implemented
+     * local storage token store that uses the local storage of a browser.
      * This store helps to reload the signed token when the client
-     * opens a new Tab or reloads the site in the browser.
+     * opens a new tab or reloads the site in the browser.
      * @default undefined
      */
     tokenStore?: TokenStore | null

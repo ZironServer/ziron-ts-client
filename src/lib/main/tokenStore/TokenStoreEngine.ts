@@ -14,10 +14,7 @@ export default class TokenStoreEngine {
         this._tokenStore = tokenStore;
     }
 
-    private _internalStorage: string | null = null;
-
     async saveToken(token: string) {
-        this._internalStorage = token;
         if(this._tokenStore){
             try {await this._tokenStore.saveToken(token);}
             catch (_) {}
@@ -32,11 +29,10 @@ export default class TokenStoreEngine {
             }
             catch (_) {}
         }
-        return this._internalStorage;
+        return null;
     }
 
     async removeToken() {
-        this._internalStorage = null;
         if(this._tokenStore){
             try {await this._tokenStore.removeToken();}
             catch (_) {}
