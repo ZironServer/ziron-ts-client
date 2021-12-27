@@ -17,6 +17,7 @@ import {
     SendTimeoutOptionValue
 } from "./lib/main/Options";
 import {ConnectAbortError} from "./lib/main/Errors";
+import {AuthTokenError} from "ziron-errors";
 
 EventEmitter.onceTimeoutErrorCreator = () => new TimeoutError('Once timeout reached.','OnceListener');
 const prepareMultiTransmit = Transport.prepareMultiTransmit;
@@ -36,5 +37,6 @@ export {
     CancelableOption,
     SendTimeoutOption,
     SendTimeoutOptionValue,
-    ConnectAbortError
+    ConnectAbortError,
+    AuthTokenError
 }
