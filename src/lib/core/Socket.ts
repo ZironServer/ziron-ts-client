@@ -20,7 +20,7 @@ import {
 import {Writable} from "../main/utils/Types";
 import {EMPTY_HANDLER} from "../main/utils/Constants";
 import Deferred from "../main/utils/Deferred";
-import {socketProtocolErrorStatuses} from "ziron-errors";
+import {socketProtocolErrorStatuses,AuthTokenError} from "ziron-errors";
 import {ConnectAbortError} from "../main/Errors";
 import EventEmitter from "emitix";
 import {CancelablePromise, toCancelablePromise} from "../main/utils/CancelablePromise";
@@ -103,7 +103,7 @@ export default class Socket {
 
     private readonly _tokenStoreEngine: TokenStoreEngine;
 
-    private _handshakeSignedAuthToken: string | null;
+    private _handshakeAuthToken: {signed: string,plain: object} | null;
     public readonly signedAuthToken: string | null = null;
     public readonly authToken: any | null = null;
     public readonly authenticated: boolean = false;
@@ -136,6 +136,13 @@ export default class Socket {
                 this.setAuth(authToken, signedAuthToken, false);
                 // noinspection JSIgnoredPromiseFromCall
                 this._tokenStoreEngine.saveToken(signedAuthToken);
+            }
+            else {
+                //Strange: payload from a server accepted token could not be extracted.
+                if(this._state === SocketConnectionState.Open) {
+                    // noinspection JSIgnoredPromiseFromCall
+                    this.transmit(InternalServerReceivers.Deauthenticate);
+                }
             }
         },
         [InternalServerTransmits.RemoveAuthToken]: () => {
@@ -297,14 +304,14 @@ export default class Socket {
             this._connectDeferred = connectDeferred;
 
             try {
-                const loadedToken = this.signedAuthToken ?? await this._tokenStoreEngine.loadToken();
-                this._handshakeSignedAuthToken = loadedToken;
+                const authToken = await this._loadHandshakeAuthToken();
+                this._handshakeAuthToken = authToken;
 
                 this._connectTimeoutTicker = setTimeout(this._boundConnectTimeoutReached,
                     timeout || this.options.connectTimeout);
 
                 const socket = createWebSocket(this._createHandshakeUrl(),
-                    Socket._createHandshakeProtocolHeader(loadedToken),this.options.wsOptions);
+                    Socket._createHandshakeProtocolHeader(authToken?.signed),this.options.wsOptions);
                 this._socket = socket;
 
                 socket.binaryType = 'arraybuffer';
@@ -321,6 +328,22 @@ export default class Socket {
             catch (err) {connectDeferred.reject(err)}
         }
         return this._connectDeferred.promise;
+    }
+
+    private async _loadHandshakeAuthToken(): Promise<{signed: string, plain: any} | null> {
+        if(this.signedAuthToken != null) return {signed: this.signedAuthToken!,plain: this.authToken};
+        const storedSignedAuthToken = await this._tokenStoreEngine.loadToken();
+        if(storedSignedAuthToken != null) {
+            const extractedAuthToken = extractAuthToken(storedSignedAuthToken);
+            if(extractedAuthToken == null) {
+                // Strange signed auth token in store (we could not extract payload from it)
+                // noinspection ES6MissingAwait
+                this._tokenStoreEngine.removeToken();
+                return null;
+            }
+            else return {signed: storedSignedAuthToken,plain: extractedAuthToken};
+        }
+        else return null;
     }
 
     /**
@@ -414,19 +437,7 @@ export default class Socket {
             this._currentPingTimeout = pingInterval + 2000;
             (this as Writable<Socket>).currentMaxPayloadSize = maxPayloadSize;
             this._updateTransportOptions(maxPayloadSize);
-
-            if(authTokenState === 0) {
-                //accepted token
-                const signedToken = this._handshakeSignedAuthToken;
-                if(signedToken !== this.signedAuthToken) {
-                    const authToken = signedToken != null ? extractAuthToken(signedToken) : null;
-                    this.setAuth(authToken, signedToken, false);
-                }
-            }
-            else if(authTokenState > 0 || authTokenState === -1) {
-                this.setAuth(null,null,false);
-                if(authTokenState === 2) this._tokenStoreEngine.removeToken();
-            }
+            this._processOpenAuthTokenState(authTokenState);
 
             this._state = SocketConnectionState.Open;
             (this as Writable<Socket>).reconnectAttempts = 0;
@@ -434,10 +445,25 @@ export default class Socket {
             clearTimeout(this._connectTimeoutTicker);
             this._renewPingTimeout();
             this._transport.emitConnection();
+
             this._connectDeferred.resolve(readyData);
             this._emit('connect');
+
             this._processPendingSubscriptions();
         };
+    }
+
+    private _processOpenAuthTokenState(authTokenState: number) {
+        if(authTokenState === 0) {
+            //accepted token
+            const authToken = this._handshakeAuthToken;
+            if(authToken != null) this.setAuth(authToken.plain,authToken.signed,false);
+            else this.setAuth(null,null,false);
+        }
+        else if(authTokenState > 0 || authTokenState === -1) {
+            this.setAuth(null,null,false);
+            if(authTokenState === 2) this._tokenStoreEngine.removeToken();
+        }
     }
 
     private _boundOnSocketClose: Socket['_onSocketClose'] = this._onSocketClose.bind(this);
@@ -501,10 +527,12 @@ export default class Socket {
         (signedAuthToken: string, options: BatchOption & SendTimeoutOption & CancelableOption<C>):
         C extends true ? CancelablePromise<void> : Promise<void>
     {
+        const authToken = extractAuthToken(signedAuthToken);
+        if(authToken == null) throw new AuthTokenError("Invalid signed auth-token: payload could not be extracted.");
+
         const sendPromise = this.invoke(InternalServerProcedures.Authenticate,signedAuthToken,options);
         const resPromise = sendPromise.then(() => {
-            const authToken = extractAuthToken(signedAuthToken);
-            if (authToken) this.setAuth(authToken, signedAuthToken,true);
+            this.setAuth(authToken, signedAuthToken,true);
             // noinspection ES6MissingAwait
             this._tokenStoreEngine.saveToken(signedAuthToken);
         });
