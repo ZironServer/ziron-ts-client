@@ -26,7 +26,7 @@
     "ziron-engine": "2.2.0",
     "buffer": "^6.0.3",
     "url": "^0.11.0",
-    "ws": "^8.5.0"
+    "ws": "^8.6.0"
   },
   "browser": {
     "ws": "./dist/lib/core/BrowserWs.js"
