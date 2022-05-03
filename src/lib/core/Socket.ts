@@ -31,7 +31,7 @@ import {preprocessPath} from "../main/utils/URL";
 
 type LocalEventEmitter = EventEmitter<{
     'error': [Error],
-    'connect': [],
+    'connect': [any],
     'connectAbort': [number,string],
     'disconnect': [number,string],
     'authTokenChange': [object | null,object | null,boolean],
@@ -447,7 +447,7 @@ export default class Socket {
             this._transport.emitConnection();
 
             this._connectDeferred.resolve(readyData);
-            this._emit('connect');
+            this._emit('connect',readyData);
 
             this._processPendingSubscriptions();
         };
