@@ -671,7 +671,8 @@ export default class Socket {
     private async _unsubscribe(channel: string, options: BatchOption & SendTimeoutOption = {}){
         const state = this._channelMap[channel];
         if(state != null) {
-            await this.transmit(InternalServerReceivers.Unsubscribe,channel,options);
+            if(this._state === SocketConnectionState.Open)
+                await this.transmit(InternalServerReceivers.Unsubscribe,channel,options);
             delete this._channelMap[channel];
             if(state === ChannelState.Subscribed) {
                 this._chEmitter.emit('unsubscribe/' + channel, UnsubscribeReason.Client);
