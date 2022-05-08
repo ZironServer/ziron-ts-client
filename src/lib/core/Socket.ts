@@ -354,7 +354,7 @@ export default class Socket {
     disconnect(code: number = 1000, reason?: string) {
         if (this._state === SocketConnectionState.Open)
             this._destroySocket(code, reason).close(code, reason)
-        else clearTimeout(this._reconnectTimeoutTicker);
+        clearTimeout(this._reconnectTimeoutTicker);
     }
 
     async reconnect(connectTimeout?: number) {
@@ -431,8 +431,11 @@ export default class Socket {
 
     private _boundOnSocketOpen: Socket['_onSocketOpen'] = this._onSocketOpen.bind(this);
     private _onSocketOpen() {
+        const socket = this._socket;
         (this.receivers as Writable<Receivers>)[InternalServerTransmits.ConnectionReady] = (
             [pingInterval,maxPayloadSize,authTokenState,readyData]) => {
+
+            if(socket.readyState !== 1) return;
 
             this._currentPingTimeout = pingInterval + 2000;
             (this as Writable<Socket>).currentMaxPayloadSize = maxPayloadSize;

@@ -22,6 +22,7 @@ export interface WebSocket {
     ondrain?: (backpressure: number) => void;
     binaryType: 'arraybuffer' | 'blob';
     bufferedAmount: number;
+    readyState: number;
 }
 
 function addOnDrainEventToWebSocket<T extends typeof window.WebSocket['prototype']>(socket: T): T {
