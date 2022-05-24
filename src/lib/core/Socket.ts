@@ -352,8 +352,8 @@ export default class Socket {
      * @param reason
      */
     disconnect(code: number = 1000, reason?: string) {
-        if (this._state === SocketConnectionState.Open)
-            this._destroySocket(code, reason).close(code, reason)
+        if (this._state !== SocketConnectionState.Closed)
+            this._destroySocket(code, reason).close(code, reason);
         clearTimeout(this._reconnectTimeoutTicker);
     }
 
