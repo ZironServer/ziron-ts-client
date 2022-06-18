@@ -28,6 +28,7 @@ import {extractAuthToken} from "../main/utils/AuthToken";
 import * as URL from 'url';
 import {CancelableOption, SendTimeoutOption} from "../main/Options";
 import {preprocessPath} from "../main/utils/URL";
+import isIp = require('is-ip');
 
 type LocalEventEmitter = EventEmitter<{
     'error': [Error],
@@ -567,7 +568,8 @@ export default class Socket {
         let port = '';
         if(this.options.port && ((this.options.secure && this.options.port !== 443) ||
             (!this.options.secure && this.options.port !== 80))) port = ':' + this.options.port;
-        return `${this.options.secure ? 'wss' : 'ws'}://${this.options.hostname}${port}${this.options.path}`;
+        const hostname = isIp.v6(this.options.hostname) ? `[${this.options.hostname}]` : this.options.hostname;
+        return `${this.options.secure ? 'wss' : 'ws'}://${hostname}${port}${this.options.path}`;
     }
 
     private _createHandshakeUrl(): string {
