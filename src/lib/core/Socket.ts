@@ -83,7 +83,7 @@ export default class Socket {
     private readonly _stringifiedHandshakeAttachment?: string;
     private readonly _url: string;
 
-    private _socket: WebSocket;
+    private _socket?: WebSocket;
     private _state: SocketConnectionState = SocketConnectionState.Closed;
 
     private _channelMap: Record<string,ChannelState> = {};
@@ -237,7 +237,7 @@ export default class Socket {
             onTransmit: this._onTransmit.bind(this),
             onInvoke: this._onInvoke.bind(this),
             onListenerError: (err) => this._emit('error',err),
-            onInvalidMessage: () => this._destroySocket(4400,'Bad message'),
+            onInvalidMessage: () => this._destroyConnection(4400,'Bad message'),
             hasLowSendBackpressure: this.hasLowSendBackpressure.bind(this)
         },this.transportOptions,false);
         this._transport.onPing = () => {
@@ -306,6 +306,8 @@ export default class Socket {
 
             try {
                 const authToken = await this._loadHandshakeAuthToken();
+                if(connectDeferred.fulfilled) return connectDeferred.promise;
+
                 this._handshakeAuthToken = authToken;
 
                 this._connectTimeoutTicker = setTimeout(this._boundConnectTimeoutReached,
@@ -323,10 +325,10 @@ export default class Socket {
                 socket.ondrain = this._boundOnSocketDrain;
                 this._transport.send = (data: string | Buffer | ArrayBuffer) => {
                     try { socket.send(data); }
-                    catch (err) { this._destroySocket(1006, err.toString()); }
+                    catch (err) { this._destroyConnection(1006, err.toString()); }
                 }
             }
-            catch (err) {connectDeferred.reject(err)}
+            catch (err) {this._destroyConnection(1000, err.toString());}
         }
         return this._connectDeferred.promise;
     }
@@ -354,7 +356,7 @@ export default class Socket {
      */
     disconnect(code: number = 1000, reason?: string) {
         if (this._state !== SocketConnectionState.Closed)
-            this._destroySocket(code, reason).close(code, reason);
+            this._destroyConnection(code, reason);
         clearTimeout(this._reconnectTimeoutTicker);
     }
 
@@ -367,18 +369,24 @@ export default class Socket {
         this.connect().catch(EMPTY_HANDLER);
     }
 
-    private _destroySocket(code: number, reason?: string): WebSocket {
+    private _destroyConnection(code: number, reason?: string) {
         reason = reason || socketProtocolErrorStatuses[code] || 'Unknown reason';
 
-        this._socket.onopen = EMPTY_HANDLER;
-        this._socket.onclose = EMPTY_HANDLER;
-        this._socket.onmessage = EMPTY_HANDLER;
-        this._socket.onerror = EMPTY_HANDLER;
-        this._socket.ondrain = EMPTY_HANDLER;
+        const socket = this._socket;
+
+        if(socket) {
+            socket.onopen = EMPTY_HANDLER;
+            socket.onclose = EMPTY_HANDLER;
+            socket.onmessage = EMPTY_HANDLER;
+            socket.onerror = EMPTY_HANDLER;
+            socket.ondrain = EMPTY_HANDLER;
+        }
 
         clearTimeout(this._connectTimeoutTicker);
         clearTimeout(this._pingTimeoutTicker);
         clearTimeout(this._reconnectTimeoutTicker);
+
+        if(socket && socket.readyState < 2) socket.close(code,reason);
 
         switch (this._state) {
             case SocketConnectionState.Open:
@@ -393,8 +401,6 @@ export default class Socket {
         }
 
         this._suspendSubscriptions();
-
-        const socket = this._socket;
 
         if (this.autoReconnectOptions.active)
             // Reconnect
@@ -411,8 +417,6 @@ export default class Socket {
                 // Codes 4500 and above will be treated as permanent disconnects.
                 // Socket will not try to auto-reconnect.
             } else if (code !== 1000 && code < 4500) this._tryReconnect();
-
-        return socket;
     }
 
     private _renewPingTimeout() {
@@ -422,17 +426,17 @@ export default class Socket {
 
     private _boundPingTimeoutReached: Socket['_onPingTimeoutReached'] = this._onPingTimeoutReached.bind(this);
     private _onPingTimeoutReached() {
-        this._destroySocket(4000).close(4000);
+        this._destroyConnection(4000);
     }
 
     private _boundConnectTimeoutReached: Socket['_onConnectTimeoutReached'] = this._onConnectTimeoutReached.bind(this);
     private _onConnectTimeoutReached() {
-        this._destroySocket(4007).close(4007);
+        this._destroyConnection(4007);
     }
 
     private _boundOnSocketOpen: Socket['_onSocketOpen'] = this._onSocketOpen.bind(this);
     private _onSocketOpen() {
-        const socket = this._socket;
+        const socket = this._socket!;
         (this.receivers as Writable<Receivers>)[InternalServerTransmits.ConnectionReady] = (
             [pingInterval,maxPayloadSize,authTokenState,readyData]) => {
 
@@ -472,13 +476,13 @@ export default class Socket {
 
     private _boundOnSocketClose: Socket['_onSocketClose'] = this._onSocketClose.bind(this);
     private _onSocketClose(event) {
-        this._destroySocket(event.code == null ? 1005 : event.code, event.reason);
+        this._destroyConnection(event.code == null ? 1005 : event.code, event.reason);
     }
 
     private _boundOnSocketError: Socket['_onSocketError'] = this._onSocketError.bind(this);
     private _onSocketError() {
         if (this._state === SocketConnectionState.Connecting)
-            this._destroySocket(1006);
+            this._destroyConnection(1006);
     }
 
     private _boundOnSocketDrain: Socket['_onSocketDrain'] = this._onSocketDrain.bind(this);
@@ -488,11 +492,11 @@ export default class Socket {
     }
 
     get bufferedSendAmount(): number {
-        return this._socket.bufferedAmount;
+        return this._socket?.bufferedAmount || 0;
     }
 
     hasLowSendBackpressure(): boolean {
-        return this._socket && this._socket.bufferedAmount <= this.options.lowSendBackpressureMark;
+        return this._socket != null && this._socket.bufferedAmount <= this.options.lowSendBackpressureMark;
     }
 
     private _onConnectAbort(code: number, reason: string) {
