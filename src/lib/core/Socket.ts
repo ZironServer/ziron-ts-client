@@ -500,19 +500,21 @@ export default class Socket {
     }
 
     private _onConnectAbort(code: number, reason: string) {
-        this._transport.emitBadConnection(BadConnectionType.ConnectAbort);
-        const err = new ConnectAbortError(this._url,code,reason);
+        this._state = SocketConnectionState.Closed;
 
+        this._transport.emitBadConnection(BadConnectionType.ConnectAbort);
+
+        const err = new ConnectAbortError(this._url,code,reason);
         this._connectDeferred.reject(err);
         this._emit('connectAbort',code,reason);
-
-        this._state = SocketConnectionState.Closed;
     }
 
     private _onDisconnect(code: number, reason: string) {
-        this._transport.emitBadConnection(BadConnectionType.Disconnect);
-        this._emit('disconnect',code,reason);
         this._state = SocketConnectionState.Closed;
+
+        this._transport.emitBadConnection(BadConnectionType.Disconnect);
+
+        this._emit('disconnect',code,reason);
     }
 
     private _tryReconnect(initialDelay?: number) {
