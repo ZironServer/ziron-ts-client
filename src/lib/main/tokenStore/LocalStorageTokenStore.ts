@@ -13,8 +13,8 @@ function isLocalStorageEnabled() {
         window.localStorage;
         // Safari, in Private Browsing Mode, looks like it supports localStorage but all calls to setItem
         // throw QuotaExceededError. We're going to detect this and avoid hard to debug edge cases.
-        window.localStorage.setItem('__scLocalStorageTest', '1');
-        window.localStorage.removeItem('__scLocalStorageTest');
+        window.localStorage.setItem('__zLocalStorageTest', '1');
+        window.localStorage.removeItem('__zLocalStorageTest');
     } catch (e) {err = e;}
     return !err;
 }
