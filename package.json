@@ -1,6 +1,6 @@
 {
   "name": "ziron-client",
-  "version": "9.9.3",
+  "version": "9.9.4",
   "description": "Ziron client",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
