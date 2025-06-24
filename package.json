@@ -18,30 +18,28 @@
     "email": "lucacode1@gmail.com"
   },
   "dependencies": {
-    "emitix": "^2.2.0",
-    "@types/node": "^13.7.6",
-    "@types/ws": "^8.5.4",
+    "emitix": "^2.3.2",
+    "@types/node": "^18.16.3",
+    "@types/ws": "^8.18.1",
     "ziron-errors": "1.5.0",
     "ziron-events": "1.5.0",
     "ziron-engine": "2.4.0",
     "buffer": "^6.0.3",
     "url": "^0.11.0",
     "is-ip": "^3.1.0",
-    "ws": "^8.13.0"
+    "ws": "^8.18.2"
   },
   "browser": {
     "ws": "./dist/lib/core/BrowserWs.js"
   },
   "devDependencies": {
-    "typescript": "^3.7.5",
-    "gulp": "4.0.2",
+    "typescript": "^5.8.3",
+    "gulp": "^5.0.1",
     "gulp-optimize-js": "1.1.0",
     "gulp-terser": "1.2.0",
     "gulp-typescript": "^5.0.1",
     "del": "^5.1.0",
-    "ts-node": "^8.0.3",
-    "mocha": "7.0.1",
-    "@types/mocha": "^7.0.2"
+    "ts-node": "^8.0.3"
   },
   "overrides": {
     "gulp-typescript": {
