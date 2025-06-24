@@ -21,7 +21,7 @@ import {Writable} from "../main/utils/Types";
 import {EMPTY_HANDLER} from "../main/utils/Constants";
 import Deferred from "../main/utils/Deferred";
 import {socketProtocolErrorStatuses,AuthTokenError} from "ziron-errors";
-import {ConnectAbortError} from "../main/Errors";
+import {ConnectAbortError, stringifyError} from "../main/Errors";
 import EventEmitter from "emitix";
 import {CancelablePromise, toCancelablePromise} from "../main/utils/CancelablePromise";
 import {extractAuthToken} from "../main/utils/AuthToken";
@@ -325,10 +325,10 @@ export default class Socket {
                 socket.ondrain = this._boundOnSocketDrain;
                 this._transport.send = (data: string | Buffer | ArrayBuffer) => {
                     try { socket.send(data); }
-                    catch (err) { this._destroyConnection(1006, err.toString()); }
+                    catch (err: any) { this._destroyConnection(1006, stringifyError(err)); }
                 }
             }
-            catch (err) {this._destroyConnection(1000, err.toString());}
+            catch (err) {this._destroyConnection(1000, stringifyError(err));}
         }
         return this._connectDeferred.promise;
     }
