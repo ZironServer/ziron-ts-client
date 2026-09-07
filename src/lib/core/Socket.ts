@@ -386,7 +386,9 @@ export default class Socket {
         clearTimeout(this._pingTimeoutTicker);
         clearTimeout(this._reconnectTimeoutTicker);
 
-        if(socket && socket.readyState < 2) socket.close(code,reason);
+        //only 1000 and 3000-4999 are valid close codes for the WebSocket API
+        if(socket && socket.readyState < 2)
+            socket.close((code === 1000 || (code >= 3000 && code <= 4999)) ? code : 1000,reason);
 
         switch (this._state) {
             case SocketConnectionState.Open:
@@ -534,7 +536,7 @@ export default class Socket {
 
     authenticate
         <C extends boolean | undefined = undefined>
-        (signedAuthToken: string, options: BatchOption & SendTimeoutOption & CancelableOption<C>):
+        (signedAuthToken: string, options: BatchOption & SendTimeoutOption & CancelableOption<C> = {}):
         C extends true ? CancelablePromise<void> : Promise<void>
     {
         const authToken = extractAuthToken(signedAuthToken);
