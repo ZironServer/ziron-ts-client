@@ -8,10 +8,10 @@ declare var WorkerGlobalScope: any;
 let globalScope: any;
 if(typeof WorkerGlobalScope !== 'undefined') globalScope = self;
 else if(typeof window !== 'undefined' && window) globalScope = window;
-else (function(this: any) {return this;})();
+else globalScope = (function(this: any) {return this;})();
 
 const GlobalWebSocket = (typeof globalScope === 'object' && globalScope) ?
-    (window.WebSocket || (window as any).MozWebSocket) : null;
+    (globalScope.WebSocket || globalScope.MozWebSocket) : null;
 if(GlobalWebSocket == null) module.exports = null;
 else {
     /**

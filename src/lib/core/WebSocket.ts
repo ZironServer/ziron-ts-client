@@ -51,8 +51,9 @@ function addOnDrainEventToWebSocket<T extends typeof window.WebSocket['prototype
 }
 
 let BrowserWebSocket: typeof window.WebSocket | undefined;
-if(typeof window === 'object' && window)
-    BrowserWebSocket = window.WebSocket || (window as any).MozWebSocket;
+const globalScope: any = (typeof self === 'object' && self) ? self :
+    ((typeof window === 'object' && window) ? window : undefined);
+if(globalScope) BrowserWebSocket = globalScope.WebSocket || globalScope.MozWebSocket;
 
 export let createWebSocket: (url: string,protocol: string | string[],options?: ClientOptions) => WebSocket;
 if (BrowserWebSocket != null) {
