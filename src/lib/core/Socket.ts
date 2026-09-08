@@ -220,7 +220,8 @@ export default class Socket {
             streamsPerPackageLimit: 20,
             chunksCanContainStreams: false
         };
-        Object.assign(this.options,options);
+        //explicitly undefined options must not override the defaults
+        for(const key in options) if(options[key] !== undefined) this.options[key] = options[key];
         this.options.path = preprocessPath(this.options.path);
 
         Object.assign(this.autoReconnectOptions,options.autoReconnect);
