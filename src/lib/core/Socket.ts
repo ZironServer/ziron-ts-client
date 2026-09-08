@@ -25,7 +25,6 @@ import {ConnectAbortError, stringifyError} from "../main/Errors";
 import EventEmitter from "emitix";
 import {CancelablePromise, toCancelablePromise} from "../main/utils/CancelablePromise";
 import {extractAuthToken} from "../main/utils/AuthToken";
-import * as URL from 'url';
 import {CancelableOption, SendTimeoutOption} from "../main/Options";
 import {preprocessPath} from "../main/utils/URL";
 import isIp = require('is-ip');
@@ -267,7 +266,7 @@ export default class Socket {
      */
     public static parseOptionsFromUrl(url: string): SocketOptions {
         if(!/^([a-zA-Z]*:\/\/)/.test(url)) url = "ws://" + url;
-        const parsedUrl = URL.parse(url);
+        const parsedUrl = new URL(url);
 
         const options: SocketOptions = {};
 

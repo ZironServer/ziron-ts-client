@@ -8,7 +8,7 @@ import {ClientOptions} from 'ws';
 
 export interface WebSocket {
     close(code?: number, reason?: string): void;
-    send(data: string | ArrayBuffer | Blob): void;
+    send(data: string | ArrayBuffer | ArrayBufferView | Blob): void;
     onopen: (event: any) => void;
     onclose: (event: any) => void;
     onmessage: (event: any) => void;
