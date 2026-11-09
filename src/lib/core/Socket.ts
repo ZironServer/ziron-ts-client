@@ -97,6 +97,7 @@ export default class Socket {
     readonly currentMaxPayloadSize: number = 4194304;
     private _currentPingTimeout: number = 200000;
     private _pingTimeoutTicker: NodeJS.Timeout;
+    private _pingDeadline: number = 0;
     private _connectTimeoutTicker: NodeJS.Timeout;
     private _reconnectTimeoutTicker: NodeJS.Timeout;
     private _connectDeferred: Deferred<any>;
@@ -385,6 +386,7 @@ export default class Socket {
         clearTimeout(this._connectTimeoutTicker);
         clearTimeout(this._pingTimeoutTicker);
         clearTimeout(this._reconnectTimeoutTicker);
+        this._watchResume(false);
 
         //only 1000 and 3000-4999 are valid close codes for the WebSocket API
         if(socket && socket.readyState < 2)
@@ -424,6 +426,35 @@ export default class Socket {
     private _renewPingTimeout() {
         clearTimeout(this._pingTimeoutTicker);
         this._pingTimeoutTicker = setTimeout(this._boundPingTimeoutReached,this._currentPingTimeout);
+        this._pingDeadline = Date.now() + this._currentPingTimeout;
+    }
+
+    /**
+     * @description
+     * Drops the open connection when its ping timeout has passed by the wall clock.
+     * Timers can stand still while a device sleeps, the wall clock goes on.
+     * In browsers, it runs when the page becomes visible or the network comes back.
+     * @return If the connection was dropped.
+     */
+    checkPingTimeout(): boolean {
+        if(this._state !== SocketConnectionState.Open || Date.now() <= this._pingDeadline) return false;
+        this._onPingTimeoutReached();
+        return true;
+    }
+
+    private _boundOnResume = () => {
+        if(globalThis.document?.visibilityState !== 'hidden') this.checkPingTimeout();
+    }
+
+    private _watchResume(watch: boolean) {
+        const document = globalThis.document, window = globalThis.window;
+        if(typeof document?.addEventListener !== 'function') return;
+        const method = watch ? 'addEventListener' : 'removeEventListener';
+        document[method]('visibilitychange',this._boundOnResume);
+        if(typeof window?.addEventListener === 'function') {
+            window[method]('online',this._boundOnResume);
+            window[method]('pageshow',this._boundOnResume);
+        }
     }
 
     private _boundPingTimeoutReached: Socket['_onPingTimeoutReached'] = this._onPingTimeoutReached.bind(this);
@@ -454,6 +485,7 @@ export default class Socket {
             (this.receivers as Writable<Receivers>)[InternalServerTransmits.ConnectionReady] = EMPTY_HANDLER;
             clearTimeout(this._connectTimeoutTicker);
             this._renewPingTimeout();
+            this._watchResume(true);
             this._transport.emitConnection();
 
             this._connectDeferred.resolve(readyData);
