@@ -24,7 +24,7 @@
     "emitix": "^2.3.2",
     "is-ip": "^3.1.0",
     "ws": "^8.21.3",
-    "ziron-engine": "2.5.0",
+    "ziron-engine": "2.6.0",
     "ziron-errors": "1.5.0",
     "ziron-events": "1.5.0"
   },
