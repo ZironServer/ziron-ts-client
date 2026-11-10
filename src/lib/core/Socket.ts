@@ -15,7 +15,8 @@ import {
     ComplexTypesOption,
     TimeoutError,
     TransmitListener,
-    Transport, TransportOptions, BatchOption, BatchOptionsValue, ResponseTimeoutOption, ReturnDataTypeOption
+    Transport, TransportOptions, BatchOption, BatchOptionsValue, ResponseTimeoutOption, ReturnDataTypeOption,
+    JSONString
 } from "ziron-engine";
 import {Writable} from "../main/utils/Types";
 import {EMPTY_HANDLER} from "../main/utils/Constants";
@@ -736,13 +737,24 @@ export default class Socket {
             .filter((channel) => this._channelMap[channel] === ChannelState.Subscribed);
     }
 
+    /**
+     * @description
+     * Publishes data in a channel.
+     * Data that is a JSONString (prepared JSON) goes in as it is,
+     * the message is the same as from the value.
+     * @param channel
+     * @param data
+     * @param options
+     */
     publish<C extends boolean | undefined = undefined, ACK extends boolean | undefined = undefined>
         (channel: string, data?: any, options: BatchOption & SendTimeoutOption & CancelableOption<C> &
             {ack?: boolean} & ComplexTypesOption = {}):
         C extends true ? CancelablePromise<void> : Promise<void>
     {
-        if(options.ack) return this.invoke(InternalServerProcedures.Publish,[channel,data],options);
-        else return this.transmit(InternalServerReceivers.Publish,[channel,data],options);
+        const pair = data instanceof JSONString ?
+            new JSONString('[' + JSON.stringify(channel) + ',' + data.toString() + ']') : [channel,data];
+        if(options.ack) return this.invoke(InternalServerProcedures.Publish,pair,options);
+        else return this.transmit(InternalServerReceivers.Publish,pair,options);
     }
 
     private _processPendingSubscriptions() {
