@@ -309,6 +309,24 @@ test('several events at once keep the first random plan', async () => {
     assert.ok(Date.now() >= planned - 2, `Connected ${planned - Date.now()} ms before the plan.`);
 });
 
+test('an event brings forward a plan that the wall clock passed while its timer stood still', async () => {
+    const browser = installBrowserEvents();
+    const server = await serve();
+    const socket = createSocket(server.port, {delays: [60000], resumeRandomness: 300});
+    await socket.connect();
+    server.cutAll();
+    await waitUntil(() => socket.nextReconnectAt !== null);
+    //the device slept: the wall clock went past the plan, the timer of 60 s stood still
+    socket.nextReconnectAt = Date.now() - 5000;
+    const start = Date.now();
+    browser.show();
+    const planned = socket.nextReconnectAt - start;
+    assert.ok(planned >= 0 && planned <= 320, `Planned in ${planned} ms.`);
+    assert.ok(socket.isClosed(), 'It tried before the random time.');
+    await waitUntil(() => socket.isConnected(), 1000, 'The overdue plan stayed.');
+    assert.equal(server.connections, 2);
+});
+
 test('reconnectNow goes at once, reconnectNow(true) waits a random time (an environment without browser events)', async () => {
     const server = await serve();
     const socket = createSocket(server.port, {delays: [60000], resumeRandomness: 300});

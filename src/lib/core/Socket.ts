@@ -533,7 +533,9 @@ export default class Socket {
         if(randomness > 0) {
             //a plan within the randomness stays (a wake up brings several events at once),
             //not the one at once after the dropped connection
-            if(dropped || at > Date.now() + randomness) {
+            //and not one that the wall clock passed (its timer stood still while the device slept)
+            const now = Date.now();
+            if(dropped || at < now || at > now + randomness) {
                 this._setReconnectTimeout(Math.round(randomness * Math.random()));
                 this._announceNextReconnect();
             }
