@@ -13,6 +13,7 @@ export interface AutoReconnectOptions {
      * @description
      * Defines if the client should try to reconnect to the server when the connection is lost.
      * Notice that the client will automatically resubscribe all previous channels.
+     * Socket.nextReconnectAt tells when the next attempt comes and Socket.reconnectNow brings it forward.
      * @default true
      */
     active?: boolean,
@@ -39,7 +40,23 @@ export interface AutoReconnectOptions {
      * Max delay in milliseconds.
      * @default 60000
      */
-    maxDelay?: number | null
+    maxDelay?: number | null,
+    /**
+     * @description
+     * Fixed delays in milliseconds, one for each attempt in a row, the last one repeats.
+     * They replace initialDelay, randomness and multiplier,
+     * e.g., [1000,2000,3000,5000] for 1, 2, 3, then every 5 seconds.
+     * @default null
+     */
+    delays?: number[] | null,
+    /**
+     * @description
+     * Defines if the client also reconnects when the server closed
+     * the connection normally (code 1000), e.g., on a restart for an update.
+     * The client never reconnects after a call of disconnect.
+     * @default false
+     */
+    afterNormalClose?: boolean
 }
 
 export default interface SocketOptions {
@@ -77,7 +94,9 @@ export default interface SocketOptions {
      *  initialDelay: 5000,
      *  multiplier: 1.5,
      *  randomness: 5000,
-     *  maxDelay: 60000
+     *  maxDelay: 60000,
+     *  delays: null,
+     *  afterNormalClose: false
      * }
      */
     autoReconnect?: AutoReconnectOptions,

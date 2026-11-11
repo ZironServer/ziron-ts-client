@@ -36,6 +36,7 @@ type LocalEventEmitter = EventEmitter<{
     'connectAbort': [number,string],
     'disconnect': [number,string],
     'authTokenChange': [object | null,object | null,boolean],
+    'nextReconnectChange': [number | null],
 }>;
 
 type ChEventEmitter = EventEmitter<any>;
@@ -55,6 +56,24 @@ export const enum UnsubscribeReason {
     Client,
     KickOut,
     BadConnection
+}
+
+/**
+ * Who closed a connection, it decides about the reconnect.
+ */
+const enum CloseOrigin {
+    /**
+     * The client itself (timeouts and errors).
+     */
+    Client,
+    /**
+     * The server or the network (the close event of the WebSocket).
+     */
+    Remote,
+    /**
+     * A call of disconnect.
+     */
+    User
 }
 
 export type ReceiverListener = (data: any, type: DataType) => void | Promise<void>;
@@ -77,7 +96,9 @@ export default class Socket {
         initialDelay: 5000,
         multiplier: 1.5,
         randomness: 5000,
-        maxDelay: 60000
+        maxDelay: 60000,
+        delays: null,
+        afterNormalClose: false
     }
 
     private readonly _stringifiedHandshakeAttachment?: string;
@@ -100,7 +121,10 @@ export default class Socket {
     private _pingTimeoutTicker: NodeJS.Timeout;
     private _pingDeadline: number = 0;
     private _connectTimeoutTicker: NodeJS.Timeout;
+    private _connectDeadline: number = Number.POSITIVE_INFINITY;
     private _reconnectTimeoutTicker: NodeJS.Timeout;
+    private _announcedNextReconnectAt: number | null = null;
+    private _watchingResume: boolean = false;
     private _connectDeferred: Deferred<any>;
 
     private readonly _tokenStoreEngine: TokenStoreEngine;
@@ -121,6 +145,13 @@ export default class Socket {
     };
 
     public readonly reconnectAttempts: number = 0;
+    /**
+     * @description
+     * When the client tries to reconnect (a Date.now() timestamp), while a reconnect is planned.
+     * It is null while the client is connected or connecting, after disconnect, after a permanent
+     * disconnect and with autoReconnect inactive. The event nextReconnectChange tells each change.
+     */
+    public readonly nextReconnectAt: number | null = null;
 
     public readonly procedures: Procedures = {};
     /**
@@ -225,7 +256,9 @@ export default class Socket {
         for(const key in options) if(options[key] !== undefined) this.options[key] = options[key];
         this.options.path = preprocessPath(this.options.path);
 
-        Object.assign(this.autoReconnectOptions,options.autoReconnect);
+        const autoReconnect = options.autoReconnect || {};
+        for(const key in autoReconnect)
+            if(autoReconnect[key] !== undefined) this.autoReconnectOptions[key] = autoReconnect[key];
 
         this._url = this._createUrl();
         this._stringifiedHandshakeAttachment = this.options.handshakeAttachment != null ?
@@ -301,10 +334,13 @@ export default class Socket {
         if(this._state === SocketConnectionState.Closed) {
             this._state = SocketConnectionState.Connecting;
 
-            clearTimeout(this._reconnectTimeoutTicker);
-
             const connectDeferred = new Deferred<void>();
             this._connectDeferred = connectDeferred;
+            this._connectDeadline = Number.POSITIVE_INFINITY;
+
+            this._cancelReconnect();
+            this._watchResume(true);
+            this._announceNextReconnect();
 
             try {
                 const authToken = await this._loadHandshakeAuthToken();
@@ -312,8 +348,9 @@ export default class Socket {
 
                 this._handshakeAuthToken = authToken;
 
-                this._connectTimeoutTicker = setTimeout(this._boundConnectTimeoutReached,
-                    timeout || this.options.connectTimeout);
+                timeout = timeout || this.options.connectTimeout;
+                this._connectTimeoutTicker = setTimeout(this._boundConnectTimeoutReached,timeout);
+                this._connectDeadline = Date.now() + timeout;
 
                 const socket = createWebSocket(this._createHandshakeUrl(),
                     Socket._createHandshakeProtocolHeader(authToken?.signed),this.options.wsOptions);
@@ -352,14 +389,19 @@ export default class Socket {
     }
 
     /**
+     * @description
+     * Closes the connection and stops reconnecting.
+     * The client does not reconnect until connect is called again.
      * @param code
-     * Codes 1000, 4500 or above 4500 will be treated as permanent disconnects.
      * @param reason
      */
     disconnect(code: number = 1000, reason?: string) {
         if (this._state !== SocketConnectionState.Closed)
-            this._destroyConnection(code, reason);
-        clearTimeout(this._reconnectTimeoutTicker);
+            this._destroyConnection(code, reason, CloseOrigin.User);
+        else {
+            this._stopReconnecting();
+            this._announceNextReconnect();
+        }
     }
 
     async reconnect(connectTimeout?: number) {
@@ -371,7 +413,7 @@ export default class Socket {
         this.connect().catch(EMPTY_HANDLER);
     }
 
-    private _destroyConnection(code: number, reason?: string) {
+    private _destroyConnection(code: number, reason?: string, origin: CloseOrigin = CloseOrigin.Client) {
         reason = reason || socketProtocolErrorStatuses[code] || 'Unknown reason';
 
         const socket = this._socket;
@@ -386,14 +428,17 @@ export default class Socket {
 
         clearTimeout(this._connectTimeoutTicker);
         clearTimeout(this._pingTimeoutTicker);
-        clearTimeout(this._reconnectTimeoutTicker);
-        this._watchResume(false);
 
         //only 1000 and 3000-4999 are valid close codes for the WebSocket API
         if(socket && socket.readyState < 2)
             socket.close((code === 1000 || (code >= 3000 && code <= 4999)) ? code : 1000,reason);
 
-        switch (this._state) {
+        const state = this._state;
+        this._state = SocketConnectionState.Closed;
+        //planned before the events: a listener sees it and disconnect cancels it
+        this._planReconnect(code,origin);
+
+        switch (state) {
             case SocketConnectionState.Open:
                 this._onDisconnect(code,reason!);
                 break;
@@ -406,22 +451,32 @@ export default class Socket {
         }
 
         this._suspendSubscriptions();
+        this._announceNextReconnect();
+    }
 
-        if (this.autoReconnectOptions.active)
-            // Reconnect
-            // 4000: Server ping timeout
-            // 4001: Client pong timeout
-            // 1005: close without status
-            // 1006 (Abnormal Closure): socket hung up
-            if (code === 4000 || code === 4001 || code === 1005) {
-                // If there is a ping or pong timeout or socket
-                // closes without status, don't wait before trying to reconnect.
-                // These could happen if the client wakes up after a period of inactivity and in this case we
-                // want to re-establish the connection as soon as possible.
-                this._tryReconnect(0)
-                // Codes 4500 and above will be treated as permanent disconnects.
-                // Socket will not try to auto-reconnect.
-            } else if (code !== 1000 && code < 4500) this._tryReconnect();
+    /**
+     * Plans the reconnect after a closed connection or stops reconnecting.
+     * @param code
+     * @param origin
+     */
+    private _planReconnect(code: number, origin: CloseOrigin) {
+        const options = this.autoReconnectOptions;
+        // No reconnect after disconnect, with an inactive auto reconnect, after codes 4500 and above
+        // (permanent disconnects) and after a normal close (1000), unless the server closed
+        // the connection and the option afterNormalClose is active.
+        if(origin === CloseOrigin.User || !options.active || code >= 4500 ||
+            (code === 1000 && (origin !== CloseOrigin.Remote || !options.afterNormalClose)))
+            this._stopReconnecting();
+        // 4000: Server ping timeout
+        // 4001: Client pong timeout
+        // 1005: close without status
+        // If there is a ping or pong timeout or socket
+        // closes without status, don't wait before trying to reconnect.
+        // These could happen if the client wakes up after a period of inactivity and in this case we
+        // want to re-establish the connection as soon as possible.
+        else if (code === 4000 || code === 4001 || code === 1005) this._tryReconnect(0);
+        // 1006 (Abnormal Closure): socket hung up
+        else this._tryReconnect();
     }
 
     private _renewPingTimeout() {
@@ -434,7 +489,7 @@ export default class Socket {
      * @description
      * Drops the open connection when its ping timeout has passed by the wall clock.
      * Timers can stand still while a device sleeps, the wall clock goes on.
-     * In browsers, it runs when the page becomes visible or the network comes back.
+     * It is part of reconnectNow.
      * @return If the connection was dropped.
      */
     checkPingTimeout(): boolean {
@@ -443,13 +498,41 @@ export default class Socket {
         return true;
     }
 
-    private _boundOnResume = () => {
-        if(globalThis.document?.visibilityState !== 'hidden') this.checkPingTimeout();
+    /**
+     * @description
+     * Brings a planned reconnect forward to now.
+     * First, it drops a connection whose ping timeout (open) or connect timeout (connecting)
+     * has passed by the wall clock. Timers can stand still while a device sleeps, the wall clock goes on.
+     * Such a connection reconnects at once (with autoReconnect active).
+     * In browsers, the client calls it by itself when the page becomes visible,
+     * the network comes back (online) or the page is shown again (pageshow).
+     * Elsewhere, call it when the app comes back to the foreground,
+     * the device wakes up or the network comes back,
+     * e.g., on the resume event of Electron's powerMonitor or with React Native's AppState.
+     * Nothing else happens while the connection is fine or no reconnect is planned
+     * (after disconnect, after a permanent disconnect and with autoReconnect inactive).
+     */
+    reconnectNow(): void {
+        if(this._state === SocketConnectionState.Open) this.checkPingTimeout();
+        else if(this._state === SocketConnectionState.Connecting &&
+            Date.now() > this._connectDeadline) this._onConnectTimeoutReached();
+        if(this.nextReconnectAt !== null) this._tryConnect();
     }
 
+    private _boundOnResume = () => {
+        if(globalThis.document?.visibilityState !== 'hidden') this.reconnectNow();
+    }
+
+    /**
+     * Listens to the events of a browser for reconnectNow,
+     * from connect until the client stops reconnecting.
+     * It does nothing in environments without them.
+     * @param watch
+     */
     private _watchResume(watch: boolean) {
         const document = globalThis.document, window = globalThis.window;
-        if(typeof document?.addEventListener !== 'function') return;
+        if(this._watchingResume === watch || typeof document?.addEventListener !== 'function') return;
+        this._watchingResume = watch;
         const method = watch ? 'addEventListener' : 'removeEventListener';
         document[method]('visibilitychange',this._boundOnResume);
         if(typeof window?.addEventListener === 'function') {
@@ -486,7 +569,6 @@ export default class Socket {
             (this.receivers as Writable<Receivers>)[InternalServerTransmits.ConnectionReady] = EMPTY_HANDLER;
             clearTimeout(this._connectTimeoutTicker);
             this._renewPingTimeout();
-            this._watchResume(true);
             this._transport.emitConnection();
 
             this._connectDeferred.resolve(readyData);
@@ -511,7 +593,7 @@ export default class Socket {
 
     private _boundOnSocketClose: Socket['_onSocketClose'] = this._onSocketClose.bind(this);
     private _onSocketClose(event) {
-        this._destroyConnection(event.code == null ? 1005 : event.code, event.reason);
+        this._destroyConnection(event.code == null ? 1005 : event.code, event.reason, CloseOrigin.Remote);
     }
 
     private _boundOnSocketError: Socket['_onSocketError'] = this._onSocketError.bind(this);
@@ -535,8 +617,6 @@ export default class Socket {
     }
 
     private _onConnectAbort(code: number, reason: string) {
-        this._state = SocketConnectionState.Closed;
-
         this._transport.emitBadConnection(BadConnectionType.ConnectAbort);
 
         const err = new ConnectAbortError(this._url,code,reason);
@@ -545,8 +625,6 @@ export default class Socket {
     }
 
     private _onDisconnect(code: number, reason: string) {
-        this._state = SocketConnectionState.Closed;
-
         this._transport.emitBadConnection(BadConnectionType.Disconnect);
 
         this._emit('disconnect',code,reason);
@@ -554,17 +632,43 @@ export default class Socket {
 
     private _tryReconnect(initialDelay?: number) {
         const exponent = (this as Writable<Socket>).reconnectAttempts++;
+        const options = this.autoReconnectOptions, delays = options.delays;
 
-        let timeout = (initialDelay == null || exponent > 0) ?
-            Math.round(Math.round(this.autoReconnectOptions.initialDelay + this.autoReconnectOptions.randomness * Math.random()) *
-                Math.pow(this.autoReconnectOptions.multiplier, this.reconnectAttempts)) : initialDelay;
+        let timeout = (initialDelay != null && exponent === 0) ? initialDelay :
+            (delays != null && delays.length > 0) ? delays[Math.min(exponent,delays.length - 1)] :
+            Math.round(Math.round(options.initialDelay + options.randomness * Math.random()) *
+                Math.pow(options.multiplier, this.reconnectAttempts));
 
-        if (this.autoReconnectOptions.maxDelay != null && timeout > this.autoReconnectOptions.maxDelay) {
-            timeout = this.autoReconnectOptions.maxDelay;
+        if (options.maxDelay != null && timeout > options.maxDelay) {
+            timeout = options.maxDelay;
         }
 
         clearTimeout(this._reconnectTimeoutTicker);
         this._reconnectTimeoutTicker = setTimeout(() => this._tryConnect(), timeout);
+        (this as Writable<Socket>).nextReconnectAt = Date.now() + timeout;
+    }
+
+    private _cancelReconnect() {
+        clearTimeout(this._reconnectTimeoutTicker);
+        (this as Writable<Socket>).nextReconnectAt = null;
+    }
+
+    private _stopReconnecting() {
+        this._cancelReconnect();
+        (this as Writable<Socket>).reconnectAttempts = 0;
+        this._watchResume(false);
+    }
+
+    /**
+     * Emits nextReconnectChange when the next reconnect differs from the last one told.
+     * The changes are told at the end of a step,
+     * so that no listener sees a plan that the same step replaced.
+     */
+    private _announceNextReconnect() {
+        const at = this.nextReconnectAt;
+        if(at === this._announcedNextReconnectAt) return;
+        this._announcedNextReconnectAt = at;
+        this._emit('nextReconnectChange',at);
     }
 
     authenticate
