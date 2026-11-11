@@ -270,8 +270,96 @@ test('the events of a browser bring a planned reconnect forward: visible page, o
         await waitUntil(() => socket.nextReconnectAt !== null);
         trigger();
         await waitUntil(() => socket.isConnected() && server.connections === connections + 1, 1000,
-            `No reconnect at once on ${event}.`);
+            `No reconnect within the randomness on ${event}.`);
     }
+});
+
+test('clients that get the same event come back at random times within resumeRandomness', async () => {
+    const browser = installBrowserEvents();
+    const server = await serve();
+    const sockets = [];
+    for(let i = 0; i < 20; i++) sockets.push(createSocket(server.port, {delays: [60000], resumeRandomness: 300}));
+    await Promise.all(sockets.map(socket => socket.connect()));
+    server.cutAll();
+    await waitUntil(() => sockets.every(socket => socket.nextReconnectAt !== null));
+    const start = Date.now();
+    browser.online();
+    const delays = sockets.map(socket => socket.nextReconnectAt - start);
+    assert.ok(delays.every(delay => delay >= 0 && delay <= 320), `Delays: ${delays.join(', ')} ms.`);
+    assert.ok(Math.max(...delays) - Math.min(...delays) >= 100, `Delays: ${delays.join(', ')} ms.`);
+    assert.ok(sockets.every(socket => socket.isClosed()), 'A client tried at once.');
+    await waitUntil(() => sockets.every(socket => socket.isConnected()), 1000);
+    assert.equal(server.connections, 40);
+});
+
+test('several events at once keep the first random plan', async () => {
+    const browser = installBrowserEvents();
+    const server = await serve();
+    const socket = createSocket(server.port, {delays: [60000], resumeRandomness: 300});
+    await socket.connect();
+    server.cutAll();
+    await waitUntil(() => socket.nextReconnectAt !== null);
+    browser.show();
+    const planned = socket.nextReconnectAt;
+    browser.pageshow();
+    browser.online();
+    assert.equal(socket.nextReconnectAt, planned);
+    assert.equal(socket.changes.length, 2);
+    await waitUntil(() => socket.isConnected(), 1000);
+    assert.ok(Date.now() >= planned - 2, `Connected ${planned - Date.now()} ms before the plan.`);
+});
+
+test('reconnectNow goes at once, reconnectNow(true) waits a random time (an environment without browser events)', async () => {
+    const server = await serve();
+    const socket = createSocket(server.port, {delays: [60000], resumeRandomness: 300});
+    await socket.connect();
+    server.cutAll();
+    await waitUntil(() => socket.nextReconnectAt !== null);
+    const start = Date.now();
+    socket.reconnectNow(true);
+    assert.ok(socket.isClosed());
+    assert.ok(socket.nextReconnectAt - start <= 320, `Planned in ${socket.nextReconnectAt - start} ms.`);
+    //a user does not wait for the random plan
+    socket.reconnectNow();
+    assert.ok(socket.isConnecting());
+    await waitUntil(() => socket.isConnected(), 1000);
+    assert.equal(server.connections, 2);
+});
+
+test('a connection that an event finds dead by the wall clock tries again after a random time', async () => {
+    const browser = installBrowserEvents();
+    const server = await serve();
+    const socket = createSocket(server.port, {delays: [60000], resumeRandomness: 300});
+    await socket.connect();
+    socket._pingDeadline = Date.now() - 1;
+    const codes = [];
+    socket.once('disconnect', code => codes.push(code));
+    const random = Math.random;
+    Math.random = () => 0.5;
+    cleanups.push(() => Math.random = random);
+    const start = Date.now();
+    browser.show();
+    Math.random = random;
+    assert.deepEqual(codes, [4000]);
+    const planned = socket.nextReconnectAt - start;
+    assert.ok(planned >= 150 && planned <= 170, `Planned in ${planned} ms instead of 150 ms.`);
+    //the last plan told is the random one
+    assert.ok(Math.abs(socket.changes.at(-1) - 150) <= 20, `Changes: ${socket.changes.join(', ')}.`);
+    await sleep(100);
+    assert.ok(socket.isClosed(), 'It tried before the random time.');
+    await waitUntil(() => socket.isConnected() && server.connections === 2, 1000);
+});
+
+test('resumeRandomness 0 brings the attempt forward at once', async () => {
+    const browser = installBrowserEvents();
+    const server = await serve();
+    const socket = createSocket(server.port, {delays: [60000], resumeRandomness: 0});
+    await socket.connect();
+    server.cutAll();
+    await waitUntil(() => socket.nextReconnectAt !== null);
+    browser.online();
+    assert.ok(socket.isConnecting());
+    await waitUntil(() => socket.isConnected() && server.connections === 2, 1000);
 });
 
 test('a hidden page does not bring the reconnect forward', async () => {

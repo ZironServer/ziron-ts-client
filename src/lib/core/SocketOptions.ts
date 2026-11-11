@@ -56,7 +56,16 @@ export interface AutoReconnectOptions {
      * The client never reconnects after a call of disconnect.
      * @default false
      */
-    afterNormalClose?: boolean
+    afterNormalClose?: boolean,
+    /**
+     * @description
+     * Randomness in milliseconds for an attempt that a resume brings forward:
+     * the events of a browser (visible page, online, pageshow) and reconnectNow(true).
+     * Many clients can get such an event at the same moment (e.g., when the network of a site comes back),
+     * so each one waits a random time up to this value. 0 turns it off.
+     * @default 500
+     */
+    resumeRandomness?: number
 }
 
 export default interface SocketOptions {
@@ -96,7 +105,8 @@ export default interface SocketOptions {
      *  randomness: 5000,
      *  maxDelay: 60000,
      *  delays: null,
-     *  afterNormalClose: false
+     *  afterNormalClose: false,
+     *  resumeRandomness: 500
      * }
      */
     autoReconnect?: AutoReconnectOptions,

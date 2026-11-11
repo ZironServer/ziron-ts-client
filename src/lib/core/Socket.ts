@@ -98,7 +98,8 @@ export default class Socket {
         randomness: 5000,
         maxDelay: 60000,
         delays: null,
-        afterNormalClose: false
+        afterNormalClose: false,
+        resumeRandomness: 500
     }
 
     private readonly _stringifiedHandshakeAttachment?: string;
@@ -505,27 +506,43 @@ export default class Socket {
 
     /**
      * @description
-     * Brings a planned reconnect forward to now.
+     * Brings a planned reconnect forward to now (with resume, to a random time soon).
      * First, it drops a connection whose ping timeout (open) or connect timeout (connecting)
      * has passed by the wall clock. Timers can stand still while a device sleeps, the wall clock goes on.
-     * Such a connection reconnects at once (with autoReconnect active).
+     * Such a connection reconnects the same way (with autoReconnect active).
      * In browsers, the client calls it by itself when the page becomes visible,
      * the network comes back (online) or the page is shown again (pageshow).
-     * Elsewhere, call it when the app comes back to the foreground,
+     * Elsewhere, call it with resume true when the app comes back to the foreground,
      * the device wakes up or the network comes back,
      * e.g., on the resume event of Electron's powerMonitor or with React Native's AppState.
      * Nothing else happens while the connection is fine or no reconnect is planned
      * (after disconnect, after a permanent disconnect and with autoReconnect inactive).
+     * @param resume
+     * True when an event of the environment calls it. Many clients can get such an event at the same moment,
+     * so the attempt comes after a random delay of up to autoReconnect.resumeRandomness.
+     * Without it (e.g., a button of the user), the attempt comes at once.
      */
-    reconnectNow(): void {
-        if(this._state === SocketConnectionState.Open) this.checkPingTimeout();
+    reconnectNow(resume: boolean = false): void {
+        let dropped = false;
+        if(this._state === SocketConnectionState.Open) dropped = this.checkPingTimeout();
         else if(this._state === SocketConnectionState.Connecting &&
             Date.now() > this._connectDeadline) this._onConnectTimeoutReached();
-        if(this.nextReconnectAt !== null) this._tryConnect();
+        const at = this.nextReconnectAt;
+        if(at === null) return;
+        const randomness = resume ? this.autoReconnectOptions.resumeRandomness : 0;
+        if(randomness > 0) {
+            //a plan within the randomness stays (a wake up brings several events at once),
+            //not the one at once after the dropped connection
+            if(dropped || at > Date.now() + randomness) {
+                this._setReconnectTimeout(Math.round(randomness * Math.random()));
+                this._announceNextReconnect();
+            }
+        }
+        else this._tryConnect();
     }
 
     private _boundOnResume = () => {
-        if(globalThis.document?.visibilityState !== 'hidden') this.reconnectNow();
+        if(globalThis.document?.visibilityState !== 'hidden') this.reconnectNow(true);
     }
 
     /**
@@ -648,6 +665,10 @@ export default class Socket {
             timeout = options.maxDelay;
         }
 
+        this._setReconnectTimeout(timeout);
+    }
+
+    private _setReconnectTimeout(timeout: number) {
         clearTimeout(this._reconnectTimeoutTicker);
         this._reconnectTimeoutTicker = setTimeout(() => this._tryConnect(), timeout);
         (this as Writable<Socket>).nextReconnectAt = Date.now() + timeout;
