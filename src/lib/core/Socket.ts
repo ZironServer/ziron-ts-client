@@ -124,6 +124,7 @@ export default class Socket {
     private _connectDeadline: number = Number.POSITIVE_INFINITY;
     private _reconnectTimeoutTicker: NodeJS.Timeout;
     private _announcedNextReconnectAt: number | null = null;
+    private _announcingNextReconnect: boolean = false;
     private _watchingResume: boolean = false;
     private _connectDeferred: Deferred<any>;
 
@@ -438,20 +439,24 @@ export default class Socket {
         //planned before the events: a listener sees it and disconnect cancels it
         this._planReconnect(code,origin);
 
-        switch (state) {
-            case SocketConnectionState.Open:
-                this._onDisconnect(code,reason!);
-                break;
-            case SocketConnectionState.Connecting:
-                this._onConnectAbort(code,reason!);
-                break;
-            case SocketConnectionState.Closed:
-                this._transport.emitBadConnection(BadConnectionType.ConnectAbort);
-                break;
+        //a listener that throws does not stop the rest
+        try {
+            switch (state) {
+                case SocketConnectionState.Open:
+                    this._onDisconnect(code,reason!);
+                    break;
+                case SocketConnectionState.Connecting:
+                    this._onConnectAbort(code,reason!);
+                    break;
+                case SocketConnectionState.Closed:
+                    this._transport.emitBadConnection(BadConnectionType.ConnectAbort);
+                    break;
+            }
         }
-
-        this._suspendSubscriptions();
-        this._announceNextReconnect();
+        finally {
+            try {this._suspendSubscriptions();}
+            finally {this._announceNextReconnect();}
+        }
     }
 
     /**
@@ -663,12 +668,20 @@ export default class Socket {
      * Emits nextReconnectChange when the next reconnect differs from the last one told.
      * The changes are told at the end of a step,
      * so that no listener sees a plan that the same step replaced.
+     * A change by a listener (e.g., reconnectNow) is told after the current one to every listener,
+     * so the last value each one gets is the current one.
      */
     private _announceNextReconnect() {
-        const at = this.nextReconnectAt;
-        if(at === this._announcedNextReconnectAt) return;
-        this._announcedNextReconnectAt = at;
-        this._emit('nextReconnectChange',at);
+        if(this._announcingNextReconnect) return;
+        this._announcingNextReconnect = true;
+        try {
+            while(this.nextReconnectAt !== this._announcedNextReconnectAt) {
+                const at = this.nextReconnectAt;
+                this._announcedNextReconnectAt = at;
+                this._emit('nextReconnectChange',at);
+            }
+        }
+        finally {this._announcingNextReconnect = false;}
     }
 
     authenticate

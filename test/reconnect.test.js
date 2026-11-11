@@ -340,6 +340,36 @@ test('disconnect in a listener of the disconnect cancels the plan before it is t
     assert.deepEqual(socket.changes, []);
 });
 
+test('reconnectNow in a listener of the next reconnect: every listener gets the changes in order, the current one last', async () => {
+    const server = await serve();
+    const socket = createSocket(server.port, {delays: [60000]});
+    const first = [], second = [];
+    socket.on('nextReconnectChange', (at) => {
+        first.push(at === null ? null : 'planned');
+        if(at !== null) socket.reconnectNow();
+    });
+    socket.on('nextReconnectChange', (at) => second.push(at === null ? null : 'planned'));
+    await socket.connect();
+    server.cutAll();
+    await waitUntil(() => socket.isConnected() && server.connections === 2, 1000);
+    assert.deepEqual(first, ['planned', null]);
+    assert.deepEqual(second, ['planned', null]);
+    assert.equal(socket.nextReconnectAt, null);
+});
+
+test('a listener of the disconnect that throws does not keep the plan from being told', async () => {
+    const server = await serve();
+    const socket = createSocket(server.port, {delays: [40]});
+    await socket.connect();
+    socket.once('disconnect', () => {throw new Error('A listener failed.');});
+    assert.throws(() => socket._destroyConnection(1006), /A listener failed/);
+    assert.notEqual(socket.nextReconnectAt, null);
+    assert.equal(socket.changes.length, 1);
+    assert.ok(socket.changes[0] > 0 && socket.changes[0] <= 40);
+    await waitUntil(() => socket.isConnected() && server.connections === 2, 1000);
+    assert.deepEqual(socket.changes.slice(1), [null]);
+});
+
 test('disconnect with any code stops reconnecting, also with a code that would reconnect at once', async () => {
     const server = await serve();
     const socket = createSocket(server.port, {delays: [20], afterNormalClose: true});
